@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [1.4.0] - 2025-12-20
+### Added
+- **Dimension System**: Visual arrow indicators for block lengths (widths/depths).
+- **Collapsible Legend**: A help overlay explaining grid lines, dimensions, and controls.
+- **Improved UI**: Cleaner overlay styles and transitions.
+
 ## [1.3.0] - 2025-12-20
 ### Fixed
 - Corrected layer switching mechanism for automated screenshot generation.

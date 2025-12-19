@@ -389,7 +389,60 @@ function drawLabelText(cx, cz, length, orient) {
     const sx = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
     const sy = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
 
-    ctx.strokeText(`${length}`, sx, sy);
+    // CAD Style Dimension Lines
+    // If length > 3, draw arrows. If not, just text.
+    if (length > 3) {
+        ctx.save();
+        ctx.strokeStyle = '#ffd700'; // Gold for dimensions
+        ctx.lineWidth = 2; // Slightly thinner than text stroke
+        ctx.beginPath();
+
+        const halfLenPx = (length * state.zoom) / 2;
+        const arrowSize = Math.min(6, state.zoom / 3);
+
+        if (orient === 'h') {
+            // Horizontal Line
+            ctx.moveTo(sx - halfLenPx + 2, sy);
+            ctx.lineTo(sx + halfLenPx - 2, sy);
+
+            // Arrows
+            // Left Arrow
+            ctx.moveTo(sx - halfLenPx + 2 + arrowSize, sy - arrowSize);
+            ctx.lineTo(sx - halfLenPx + 2, sy);
+            ctx.lineTo(sx - halfLenPx + 2 + arrowSize, sy + arrowSize);
+
+            // Right Arrow
+            ctx.moveTo(sx + halfLenPx - 2 - arrowSize, sy - arrowSize);
+            ctx.lineTo(sx + halfLenPx - 2, sy);
+            ctx.lineTo(sx + halfLenPx - 2 - arrowSize, sy + arrowSize);
+
+        } else {
+            // Vertical Line
+            ctx.moveTo(sx, sy - halfLenPx + 2);
+            ctx.lineTo(sx, sy + halfLenPx - 2);
+
+            // Top Arrow
+            ctx.moveTo(sx - arrowSize, sy - halfLenPx + 2 + arrowSize);
+            ctx.lineTo(sx, sy - halfLenPx + 2);
+            ctx.lineTo(sx + arrowSize, sy - halfLenPx + 2 + arrowSize);
+
+            // Bottom Arrow
+            ctx.moveTo(sx - arrowSize, sy + halfLenPx - 2 - arrowSize);
+            ctx.lineTo(sx, sy + halfLenPx - 2);
+            ctx.lineTo(sx + arrowSize, sy + halfLenPx - 2 - arrowSize);
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Text (with background box for readability over lines)
+    // Actually, just stroke is enough if line is thin.
+    // Or clear rect behind text?
+    // Let's rely on the thick black stroke of the text.
+
+    ctx.fillStyle = '#ffffff'; // White text
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
     ctx.strokeText(`${length}`, sx, sy);
     ctx.fillText(`${length}`, sx, sy);
 }
@@ -438,6 +491,22 @@ function setupControls() {
         state.offsetZ = canvas.height / 2;
         render();
     };
+
+    // Legend
+    const legendPanel = document.getElementById('legend-panel');
+    const legendToggle = document.getElementById('legend-toggle');
+    const closeLegend = document.getElementById('close-legend');
+
+    const toggleLegend = () => {
+        if (legendPanel.classList.contains('hidden')) {
+            legendPanel.classList.remove('hidden');
+        } else {
+            legendPanel.classList.add('hidden');
+        }
+    };
+
+    if (legendToggle) legendToggle.onclick = toggleLegend;
+    if (closeLegend) closeLegend.onclick = toggleLegend;
 
     // Layer
     const updateLayer = (val) => {

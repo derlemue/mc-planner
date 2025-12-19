@@ -74,6 +74,52 @@
                 </div>
             </aside>
         </main>
+        <div id="legend-toggle" class="glass-panel" title="Toggle Legend">
+            <span class="icon">?</span>
+        </div>
+
+        <div id="legend-panel" class="glass-panel hidden">
+            <div class="legend-header">
+                <h3>Blueprint Legend</h3>
+                <button id="close-legend">×</button>
+            </div>
+            <div class="legend-content">
+                <div class="legend-item">
+                    <div class="symbol grid-symbol"></div>
+                    <div class="desc">
+                        <strong>Grid Lines</strong>
+                        <p>Thin: 1 Block | Thick: 10 Blocks</p>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="symbol dimension-symbol">
+                        <span class="arrow">←</span> 5 <span class="arrow">→</span>
+                    </div>
+                    <div class="desc">
+                        <strong>Dimensions</strong>
+                        <p>Total Length (Width/Depth) in blocks.</p>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="symbol layer-symbol">
+                        <span>Y=70</span>
+                    </div>
+                    <div class="desc">
+                        <strong>Layer Height</strong>
+                        <p>Current vertical slice level. Use slider to change.</p>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="symbol controls-symbol">
+                        <span>🖱️</span>
+                    </div>
+                    <div class="desc">
+                        <strong>Navigation</strong>
+                        <p>Drag to Pan • Scroll to Zoom</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
