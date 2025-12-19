@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [1.5.0] - 2025-12-20
+### Documentation
+- Updated all screenshots to reflect v1.4.0 UI changes.
+- Refined "Dimension Detail" view for better clarity.
+
 ## [1.4.0] - 2025-12-20
 ### Added
 - **Dimension System**: Visual arrow indicators for block lengths (widths/depths).
