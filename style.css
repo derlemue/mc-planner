@@ -70,6 +70,33 @@ header {
     margin-left: 4px;
 }
 
+#project-select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--accent);
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin-left: 20px;
+    outline: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+}
+
+#project-select:hover {
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+#project-select option {
+    background: var(--bg-dark);
+    color: var(--text-main);
+}
+
 .coords-display {
     font-family: monospace;
     color: var(--text-muted);

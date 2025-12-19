@@ -19,6 +19,10 @@ Explore the full scale of the city structure.
 Zoom in to see **automatic block counts** and the **smart grid** helper.
 ![Detail View with Labels](assets/images/detail.png)
 
+### New: Eiffel Tower
+Select "Eiffel Tower" from the dropdown to access blueprints for this 200+ block tall landmark.
+![Eiffel Tower Blueprint](assets/images/eiffel.png)
+
 ## 🚀 Usage
 
 ### Quick Start

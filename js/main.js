@@ -1,9 +1,9 @@
-import { generateMinasTirith, COLORS } from './generator.js';
+import { generateMinasTirith, generateEiffelTower, COLORS } from './generator.js';
 
 // --- Global State ---
 const state = {
     world: null, // Map<y, Map<x, Map<z, block>>>
-    currentLayer: 70,
+    currentLayer: 30, // Changed from 70
     minY: 0,
     maxY: 300,
     zoom: 2, // Pixels per block
@@ -11,7 +11,8 @@ const state = {
     offsetZ: 0,
     isDragging: false,
     lastMouseX: 0,
-    lastMouseZ: 0
+    lastMouseZ: 0,
+    activeGenerator: 'minas_tirith'
 };
 
 // Expose for debugging
@@ -28,41 +29,67 @@ const coordZ = document.getElementById('coord-z');
 const materialListDom = document.getElementById('material-list');
 const layerBlockCountDom = document.getElementById('layer-block-count');
 const loadingOverlay = document.getElementById('loading-overlay');
+const projectSelect = document.getElementById('project-select');
 
 // --- Initialization ---
 function init() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Start Generation
+    // Project Selection
+    if (projectSelect) {
+        projectSelect.onchange = (e) => {
+            state.activeGenerator = e.target.value;
+            generateWorld();
+        };
+    }
+
+    generateWorld();
+    setupControls();
+}
+
+function generateWorld() {
     loadingOverlay.classList.remove('hidden');
 
-    // Zero-timeout to let UI render loading state
     setTimeout(() => {
-        state.world = generateMinasTirith();
+        if (state.activeGenerator === 'eiffel_tower') {
+            state.world = generateEiffelTower();
+        } else {
+            state.world = generateMinasTirith();
+        }
 
         // Find Y Bounds
         const yLevels = Array.from(state.world.keys()).sort((a, b) => a - b);
         if (yLevels.length > 0) {
             state.minY = yLevels[0];
-            state.maxY = yLevels[yLevels.length - 1] + 50; // Rendering buffer
+            state.maxY = yLevels[yLevels.length - 1] + 10;
 
-            // Set slider bounds
             layerSlider.min = state.minY;
             layerSlider.max = state.maxY;
 
-            // Set initial layer to something interesting if 70 is empty (though it shouldn't be)
-            if (!state.world.has(70)) {
-                state.currentLayer = yLevels[0];
+            // Ensure current layer is valid, default to 30
+            if (!state.world.has(state.currentLayer)) {
+                // If 30 isn't valid, try finding closest or default to min
+                if (state.world.has(30)) {
+                    state.currentLayer = 30;
+                } else {
+                    state.currentLayer = Math.max(30, state.minY);
+                }
             }
+        } else {
+            state.minY = 0;
+            state.maxY = 256;
         }
 
-        console.log(`Initialized. MinY: ${state.minY}, MaxY: ${state.maxY}, Current: ${state.currentLayer}`);
+        updateLayerControls();
         loadingOverlay.classList.add('hidden');
         render();
     }, 50);
+}
 
-    setupControls();
+function updateLayerControls() {
+    layerSlider.value = state.currentLayer;
+    layerInput.value = state.currentLayer;
 }
 
 // --- Canvas & Rendering ---

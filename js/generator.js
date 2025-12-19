@@ -204,3 +204,116 @@ export function generateMinasTirith() {
     console.timeEnd('Generation');
     return world;
 }
+
+export function generateEiffelTower() {
+    console.time('Generation-Eiffel');
+    console.log('Generating Eiffel Tower...');
+    const world = new Map();
+    let totalBlocks = 0;
+
+    const setBlock = (x, y, z, blockType) => {
+        if (!blockType) return;
+        if (!world.has(y)) world.set(y, new Map());
+        const layer = world.get(y);
+        if (!layer.has(x)) layer.set(x, new Map());
+        const row = layer.get(x);
+        row.set(z, { type: blockType });
+        totalBlocks++;
+    };
+
+    // Constants
+    const CENTER_Y = 64;
+    const TOWER_HEIGHT = 220; // ~220 blocks
+    const BASE_WIDTH = 64; // +/- 32
+
+    // We use a power function for the curve: width = a * (height - y)^k
+    // Or simpler: width = BASE_WIDTH * exp(-k * relativeY)
+
+    for (let y = 0; y <= TOWER_HEIGHT; y++) {
+        const absY = CENTER_Y + y;
+        const progress = y / TOWER_HEIGHT;
+
+        // Curve calculation (Exponential Decay)
+        // At y=0, width ~ 32. At y=220, width ~ 2
+        // y=0 -> w=32. y=1 -> w=0? No.
+        const w = 32 * Math.pow((1 - progress), 1.5) + 2;
+
+        // Platforms (Solid floors)
+        const isPlatform = (y === 57 || y === 115 || y === 200 || y === TOWER_HEIGHT);
+
+        if (isPlatform) {
+            // Solid Platform
+            const platW = Math.ceil(w + 4); // Slightly wider
+            for (let x = -platW; x <= platW; x++) {
+                for (let z = -platW; z <= platW; z++) {
+                    const d = Math.max(Math.abs(x), Math.abs(z));
+                    if (d <= platW && (d === platW || d % 2 === 0)) { // Grating pattern?
+                        setBlock(x, absY, z, 'stone');
+                    }
+                    if (d < platW - 1) { // Railing check
+                        setBlock(x, absY, z, 'stone');
+                    }
+                }
+            }
+        } else {
+            // Legs / Lattice
+            // The tower has 4 distinct legs that merge
+            // At bottom (y=0), legs are separate.
+            // Leg separation decreases as y increases.
+
+            // Center of a leg at height y
+            const legOffset = w * 0.8;
+            const legThickness = Math.max(2, 6 * (1 - progress));
+
+            // If y > mergePoint (~120), legs touch/merge
+            const isMerged = y > 120;
+
+            // Draw 4 symmetric legs
+            const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+            dirs.forEach(([dx, dz]) => {
+                const cx = (isMerged ? 0 : dx * legOffset);
+                const cz = (isMerged ? 0 : dz * legOffset);
+
+                // Draw leg "column" for this slice
+                // Simple square/circle for the leg cross-section
+                for (let lx = -legThickness; lx <= legThickness; lx++) {
+                    for (let lz = -legThickness; lz <= legThickness; lz++) {
+                        // Position relative to leg center
+                        const finalX = Math.round(cx + lx);
+                        const finalZ = Math.round(cz + lz);
+
+                        // Hollow Lattice Logic
+                        // Only draw if on edge or periodic
+                        const isEdge = (Math.abs(lx) >= legThickness - 1 || Math.abs(lz) >= legThickness - 1);
+                        const isLattice = ((absY % 5 === 0) || (finalX % 3 === 0 && finalZ % 3 === 0));
+
+                        if (isEdge || isLattice) {
+                            setBlock(finalX, absY, finalZ, 'stone_brick');
+                        }
+                    }
+                }
+
+                // Cross bracing between legs (Arch)
+                // Bottom arch (Y=0 to Y=30)
+                if (y < 40) {
+                    // An arch connects the legs
+                    // Dist from center < something
+                }
+            });
+
+            // Central Spire (Top 50 blocks)
+            if (y > TOWER_HEIGHT - 50) {
+                for (let x = -1; x <= 1; x++) {
+                    for (let z = -1; z <= 1; z++) {
+                        setBlock(x, absY, z, 'gold_block');
+                    }
+                }
+            }
+        }
+    }
+
+    console.log(`Generation complete. Total blocks: ${totalBlocks}`);
+    console.timeEnd('Generation-Eiffel');
+    return world;
+}
