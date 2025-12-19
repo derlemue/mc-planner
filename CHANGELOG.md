@@ -13,3 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layer-by-layer slicing (Y-level) controls.
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
+
+## [1.2.0] - 2025-12-19
+### Added
+- Decorative elements: Sea lanterns and Redstone lamps for lighting details.
+- Fountain generated in the Prow area of Minas Tirith.
+- Beacons and lights for Eiffel Tower.
+
+### Changed
+- **Label Optimization**: Adjacent run-length labels are now merged into single, centered labels. This fixes the clutter issue (e.g. "27 / 9").
+- Improved label visibility with text outlining.
+- Updated screenshots to match new rendering style.

@@ -255,32 +255,30 @@ function drawLabels(layer) {
     const startZ = Math.floor((-state.offsetZ / state.zoom) - 5);
     const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + 5);
 
-    // Horizontal Runs (scan z, then x)
+    // Unified Label Storage
+    const hLabels = [];
+    const vLabels = [];
+
+    // Horizontal Scanning
     for (let z = startZ; z <= endZ; z++) {
         let runStart = null;
         let lastType = null;
-
         for (let x = startX; x <= endX + 1; x++) {
-            // Get block safely
             let block = null;
             if (layer.has(x) && layer.get(x).has(z)) {
                 block = layer.get(x).get(z);
             }
-
             if (block && (!runStart || block.type === lastType)) {
-                // Continue run
                 if (runStart === null) runStart = x;
                 lastType = block.type;
             } else {
-                // Break run
                 if (runStart !== null) {
                     const len = x - runStart;
-                    if (len > 1) { // Only label runs > 1
-                        drawLabel(runStart, z, len, 'h');
+                    if (len > 2) {
+                        hLabels.push({ x: runStart, z: z, len: len, type: 'h' });
                     }
                     runStart = null;
                 }
-                // If this is a new block, start new run
                 if (block) {
                     runStart = x;
                     lastType = block.type;
@@ -289,28 +287,22 @@ function drawLabels(layer) {
         }
     }
 
-    // Vertical Runs
-    // (Optimization needed: Avoid double labeling? For now, just label > 2 vertical too)
-    // To scan vertically efficiently we need a better structure or just query
-
+    // Vertical Scanning
     for (let x = startX; x <= endX; x++) {
         if (!layer.has(x)) continue;
         const col = layer.get(x);
-
         let runStart = null;
         let lastType = null;
-
         for (let z = startZ; z <= endZ + 1; z++) {
             let block = col.has(z) ? col.get(z) : null;
-
             if (block && (!runStart || block.type === lastType)) {
                 if (runStart === null) runStart = z;
                 lastType = block.type;
             } else {
                 if (runStart !== null) {
                     const len = z - runStart;
-                    if (len > 1) {
-                        drawLabel(x, runStart, len, 'v');
+                    if (len > 2) {
+                        vLabels.push({ x: x, z: runStart, len: len, type: 'v' });
                     }
                     runStart = null;
                 }
@@ -321,31 +313,85 @@ function drawLabels(layer) {
             }
         }
     }
+
+    // Merging Logic
+    // We merge H-labels that are stacked vertically (same x, same len, adjacent z)
+    const mergeLabels = (labels, orient) => {
+        if (labels.length === 0) return;
+        // Sort: primary by secondary-coord, then by primary-coord
+        // For H (vary Z): sort by X, then Len, then Z
+        if (orient === 'h') {
+            labels.sort((a, b) => a.x - b.x || a.len - b.len || a.z - b.z);
+        } else {
+            labels.sort((a, b) => a.z - b.z || a.len - b.len || a.x - b.x);
+        }
+
+        let currentGroup = [labels[0]];
+
+        for (let i = 1; i < labels.length; i++) {
+            const prev = currentGroup[currentGroup.length - 1];
+            const curr = labels[i];
+
+            let isAdjacent = false;
+            if (orient === 'h') {
+                isAdjacent = (curr.x === prev.x && curr.len === prev.len && curr.z === prev.z + 1);
+            } else {
+                isAdjacent = (curr.z === prev.z && curr.len === prev.len && curr.x === prev.x + 1);
+            }
+
+            if (isAdjacent) {
+                currentGroup.push(curr);
+            } else {
+                drawMergedLabel(currentGroup, orient);
+                currentGroup = [curr];
+            }
+        }
+        drawMergedLabel(currentGroup, orient);
+    };
+
+    mergeLabels(hLabels, 'h');
+    mergeLabels(vLabels, 'v');
 }
 
-function drawLabel(startCoord, otherCoord, length, orient) {
-    if (length < 2) return;
+function drawMergedLabel(group, orient) {
+    if (!group || group.length === 0) return;
+    const first = group[0];
+    const last = group[group.length - 1];
 
-    // Calculate center of run
-    let cx, cz;
-    if (orient === 'h') {
-        // startCoord is X, other is Z
-        cx = startCoord + (length / 2) - 0.5; // -0.5 to center on boundary?? No. 
-        // Blocks at 0 and 1. Center is 1. 0.5 + 0.5 = 1.0
-        // Correct is (start + end)/2. End is start + length - 1.
-        // (start + start + length - 1) / 2 = start + length/2 - 0.5
-        cx = startCoord + (length / 2) - 0.5;
-        cz = otherCoord;
-    } else {
-        cx = otherCoord;
-        cz = startCoord + (length / 2) - 0.5;
+    // Pick the "middle" item's coordinates
+    // If H-run: x is same, z varies. Center Z = (first.z + last.z) / 2
+    let labelZ = (first.z + last.z) / 2;
+    let labelX = (orient === 'h') ? (first.x + first.len / 2 - 0.5) : first.x;
+
+    if (orient === 'v') {
+        labelX = (first.x + last.x) / 2;
+        labelZ = first.z + first.len / 2 - 0.5;
     }
 
-    const screenX = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
-    const screenY = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
+    // Only draw if the width of the group (ortho to run) is small OR if we are in the middle of a huge block.
+    // If we have a 27x27 block, we have one group of 27 H-labels and one group of 27 V-labels.
+    // Both will try to draw a "27" in the exact center.
+    // This results in two "27"s on top of each other. That's fine, looks like one bold 27.
 
-    ctx.strokeText(`${length}`, screenX, screenY);
-    ctx.fillText(`${length}`, screenX, screenY);
+    drawLabelText(labelX, labelZ, first.len, orient);
+}
+
+function drawLabelText(cx, cz, length, orient) {
+    const screenX = state.offsetX + (cx * state.zoom) + (state.zoom / 2); // Center of block
+    // Actually cx is already centered? 
+    // Wait, in previous code: cx = start + len/2 - 0.5. 
+    // ScreenX = offset + cx*zoom + zoom/2.
+    // If cx is 0.5 (center of 0 and 1), screenX = off + 0.5*z + 0.5*z = off + z. Correct.
+
+    // Check our cx calculation above.
+    // H-run: labelX = startX + len/2 - 0.5. Correct.
+
+    const sx = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
+    const sy = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
+
+    ctx.strokeText(`${length}`, sx, sy);
+    ctx.strokeText(`${length}`, sx, sy);
+    ctx.fillText(`${length}`, sx, sy);
 }
 
 function updateSidebar(materials, count) {
