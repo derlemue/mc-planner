@@ -256,11 +256,18 @@ input[type="number"] {
     margin-bottom: 4px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.02);
-    transition: background 0.2s;
+    transition: all 0.2s;
+    cursor: pointer;
+    /* Interaction hint */
 }
 
 .material-item:hover {
     background: rgba(255, 255, 255, 0.05);
+}
+
+.material-item.disabled {
+    opacity: 0.4;
+    filter: grayscale(100%);
 }
 
 .color-swatch {

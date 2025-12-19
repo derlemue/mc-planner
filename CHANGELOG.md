@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [2.0.0-beta] - 2025-12-20
+### Added
+- **Auto-Hide Legend**: The legend overlay automatically minimizes after 10 seconds to reduce clutter.
+- **Interactive Material Filter**: Click on materials in the sidebar to toggle their visibility on the blueprint.
+- **Visual Feedback**: Disabled materials are now grayed out in the sidebar.
+
 ## [1.5.0] - 2025-12-20
 ### Documentation
 - Updated all screenshots to reflect v1.4.0 UI changes.

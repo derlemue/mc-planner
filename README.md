@@ -1,7 +1,7 @@
 # 🏰 MC Planner: Minas Tirith Edition
 
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
-![Version](https://img.shields.io/badge/Version-1.5.0-blue.svg)
+![Version](https://img.shields.io/badge/Version-2.0.0--beta-orange.svg)
 
 **The ultimate planning tool for recreating the White City on your multiplayer server.**
 

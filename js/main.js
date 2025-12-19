@@ -12,7 +12,8 @@ const state = {
     isDragging: false,
     lastMouseX: 0,
     lastMouseZ: 0,
-    activeGenerator: 'minas_tirith'
+    activeGenerator: 'minas_tirith',
+    hiddenMaterials: new Set() // New state for filtering
 };
 
 // Expose for debugging
@@ -42,6 +43,15 @@ function init() {
             state.activeGenerator = e.target.value;
             generateWorld();
         };
+    }
+
+    // Auto-Hide Legend after 10 seconds
+    const legendPanel = document.getElementById('legend-panel');
+    if (legendPanel) {
+        legendPanel.classList.remove('hidden'); // Ensure visible at start
+        setTimeout(() => {
+            legendPanel.classList.add('hidden');
+        }, 10000);
     }
 
     generateWorld();
@@ -127,17 +137,26 @@ function render() {
     if (layer) {
         for (const [x, row] of layer) {
             for (const [z, block] of row) {
-                drawBlock(x, z, block.type);
-                visibleBlocks.add(`${x},${z}`);
-
-                // Stats
+                // Collect Stats (BEFORE filtering?)
+                // User requirement: "materialien per klick ... ein und aufgeblendet".
+                // Usually stats remain constant, but let's hide them from view.
                 blockCount++;
                 materials.set(block.type, (materials.get(block.type) || 0) + 1);
+
+                // Filter visibility
+                if (state.hiddenMaterials.has(block.type)) {
+                    continue;
+                }
+
+                drawBlock(x, z, block.type);
+                visibleBlocks.add(`${x},${z}`);
             }
         }
 
         // PASS 2: Labels
         // Only run if zoom is high enough to read
+        // Pass the filtered Set 'visibleBlocks' to drawLabels to ignore hidden blocks?
+        // drawLabels currently iterates 'layer'. We should make it respect hiddenMaterials.
         if (state.zoom > 10) {
             drawLabels(layer);
         }
@@ -267,6 +286,10 @@ function drawLabels(layer) {
             let block = null;
             if (layer.has(x) && layer.get(x).has(z)) {
                 block = layer.get(x).get(z);
+                // SKIP HIDDEN MATERIALS in Labeling
+                if (state.hiddenMaterials.has(block.type)) {
+                    block = null; // Treat as empty space
+                }
             }
             if (block && (!runStart || block.type === lastType)) {
                 if (runStart === null) runStart = x;
@@ -295,6 +318,10 @@ function drawLabels(layer) {
         let lastType = null;
         for (let z = startZ; z <= endZ + 1; z++) {
             let block = col.has(z) ? col.get(z) : null;
+            if (block && state.hiddenMaterials.has(block.type)) {
+                block = null; // Treat as empty
+            }
+
             if (block && (!runStart || block.type === lastType)) {
                 if (runStart === null) runStart = z;
                 lastType = block.type;
@@ -459,6 +486,12 @@ function updateSidebar(materials, count) {
     materials.forEach((qty, type) => {
         const item = document.createElement('div');
         item.className = 'material-item';
+
+        // Add disabled class if hidden
+        if (state.hiddenMaterials.has(type)) {
+            item.classList.add('disabled');
+        }
+
         const color = COLORS[type] || '#fff';
 
         item.innerHTML = `
@@ -466,6 +499,17 @@ function updateSidebar(materials, count) {
             <span class="material-name">${formatName(type)}</span>
             <span class="material-count">${qty}</span>
         `;
+
+        // Click listener to toggle visibility
+        item.onclick = () => {
+            if (state.hiddenMaterials.has(type)) {
+                state.hiddenMaterials.delete(type);
+            } else {
+                state.hiddenMaterials.add(type);
+            }
+            render();
+        };
+
         materialListDom.appendChild(item);
     });
 }
