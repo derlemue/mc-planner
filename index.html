@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Planner | Minas Tirith</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta name="description" content="Professional Minecraft Blueprint Planner for Minas Tirith">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="glass-panel">
+            <div class="header-left">
+                <h1>MC Planner <span>PRO</span></h1>
+                <div class="project-selector">
+                    <span class="active-project">Minas Tirith</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="coords-display">
+                    X: <span id="coord-x">0</span> Z: <span id="coord-z">0</span>
+                </div>
+            </div>
+            <div id="loading-overlay" class="hidden">
+                <div class="spinner"></div>
+                <p>Generating Geometry...</p>
+            </div>
+        </header>
+
+        <main>
+            <div class="canvas-wrapper">
+                <canvas id="blueprint-canvas"></canvas>
+                <div class="canvas-controls glass-panel">
+                    <button id="zoom-in" title="Zoom In">+</button>
+                    <button id="zoom-out" title="Zoom Out">-</button>
+                    <button id="reset-view" title="Reset View">⟲</button>
+                    <div class="divider"></div>
+                    <div class="layer-control">
+                        <label for="layer-slider">Level Y</label>
+                        <input type="range" id="layer-slider" min="0" max="300" value="70">
+                        <input type="number" id="layer-input" min="0" max="300" value="70">
+                    </div>
+                </div>
+            </div>
+
+            <aside class="sidebar glass-panel">
+                <h2>Material Manifest</h2>
+                <div id="material-list" class="material-list">
+                    <!-- Populated by JS -->
+                    <div class="empty-state">Select a layer to view materials</div>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Layer Stats</h3>
+                    <div class="stat-row">
+                        <span>Blocks:</span>
+                        <span id="layer-block-count">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Dimensions:</span>
+                        <span id="layer-dims">-</span>
+                    </div>
+                </div>
+
+                <div class="info-panel footer-info">
+                    <p>Based on CraftAttack 13 Logic</p>
+                    <p class="license-link">CC BY-NC 4.0</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
