@@ -76,11 +76,11 @@ function resizeCanvas() {
 }
 
 function render() {
-    console.log(`Rendering Layer ${state.currentLayer} (Zoom: ${state.zoom}, Offset: ${state.offsetX},${state.offsetZ})`);
+    // console.log(`Rendering Layer ${state.currentLayer} ...`);
 
     // Clear
     ctx.fillStyle = '#020617'; // Match bg
-    ctx.fillRect(0, 0, canvas.width, canvas.height); // Use fillRect to ensure background
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw Grid (Background)
     drawGrid();
@@ -92,73 +92,105 @@ function render() {
     const materials = new Map();
     let blockCount = 0;
 
+    // We need to collect blocks to do the labeling pass effectively?
+    // Actually, we can just iterate. But for labels we need to know neighbors.
+    // Let's dump visible blocks into a sparse structure for the labeler.
+    const visibleBlocks = new Set(); // Strings "x,z"
+
     if (layer) {
-        // Optimization: Iterate blocks
-        // Map<x, Map<z, block>>
         for (const [x, row] of layer) {
             for (const [z, block] of row) {
                 drawBlock(x, z, block.type);
+                visibleBlocks.add(`${x},${z}`);
 
                 // Stats
                 blockCount++;
                 materials.set(block.type, (materials.get(block.type) || 0) + 1);
             }
         }
-    } else {
-        console.log(`No data for layer ${state.currentLayer}`);
-    }
 
-    // Draw Ghost/Lower layers for context? (Optional, maybe too messy)
-    // For now strict slicing is cleaner for blueprints.
+        // PASS 2: Labels
+        // Only run if zoom is high enough to read
+        if (state.zoom > 10) {
+            drawLabels(layer);
+        }
+
+    } else {
+        // console.log(`No data for layer ${state.currentLayer}`);
+    }
 
     updateSidebar(materials, blockCount);
 }
 
 function drawGrid() {
-    const gridSize = 10 * state.zoom;
-    const offsetX = state.offsetX % gridSize;
-    const offsetZ = state.offsetZ % gridSize;
+    const gridSize = state.zoom;
 
-    ctx.strokeStyle = '#1e293b';
+    // We want lines at World Coordinates.
+    // Start X/Z in World Space
+    // screenX = offsetX + worldX * zoom
+    // 0 = offsetX + startX * zoom  ->  startX = -offsetX / zoom
+
+    const startX = Math.floor(-state.offsetX / state.zoom);
+    const endX = Math.ceil((canvas.width - state.offsetX) / state.zoom);
+    const startZ = Math.floor(-state.offsetZ / state.zoom);
+    const endZ = Math.ceil((canvas.height - state.offsetZ) / state.zoom);
+
     ctx.lineWidth = 1;
 
-    // Vertical lines
-    for (let x = offsetX; x < canvas.width; x += gridSize) {
+    // Optimization: Draw main grid less frequently if zoom is low?
+    // Just draw lines.
+
+    for (let x = startX; x <= endX; x++) {
+        const screenX = state.offsetX + (x * gridSize);
+
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        if (x === 0) {
+            ctx.strokeStyle = '#6366f1'; // Axis
+            ctx.lineWidth = 2;
+        } else if (x % 10 === 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // 10s
+            ctx.lineWidth = 1;
+        } else if (x % 5 === 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // 5s
+            ctx.lineWidth = 1;
+        } else {
+            if (state.zoom < 5) continue; // Cull detail
+            ctx.strokeStyle = '#1e293b'; // Standard
+            ctx.lineWidth = 1;
+        }
+
+        ctx.moveTo(screenX, 0);
+        ctx.lineTo(screenX, canvas.height);
         ctx.stroke();
     }
 
-    // Horizontal lines
-    for (let z = offsetZ; z < canvas.height; z += gridSize) {
+    for (let z = startZ; z <= endZ; z++) {
+        const screenZ = state.offsetZ + (z * gridSize);
+
         ctx.beginPath();
-        ctx.moveTo(0, z);
-        ctx.lineTo(canvas.width, z);
+        if (z === 0) {
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 2;
+        } else if (z % 10 === 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+        } else if (z % 5 === 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+        } else {
+            if (state.zoom < 5) continue;
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+        }
+
+        ctx.moveTo(0, screenZ);
+        ctx.lineTo(canvas.width, screenZ);
         ctx.stroke();
     }
-
-    // Center Axes
-    ctx.strokeStyle = '#6366f1';
-    ctx.lineWidth = 2;
-    // Z Axis (Vertical on screen)
-    ctx.beginPath();
-    ctx.moveTo(state.offsetX, 0);
-    ctx.lineTo(state.offsetX, canvas.height);
-    ctx.stroke();
-    // X Axis (Horizontal on screen)
-    ctx.beginPath();
-    ctx.moveTo(0, state.offsetZ);
-    ctx.lineTo(canvas.width, state.offsetZ);
-    ctx.stroke();
 }
 
 function drawBlock(x, z, type) {
     const size = state.zoom;
-    // Transform coordinates:
-    // World X -> Screen X
-    // World Z -> Screen Y (Canvas coords)
-
     const screenX = state.offsetX + (x * size);
     const screenY = state.offsetZ + (z * size);
 
@@ -168,8 +200,122 @@ function drawBlock(x, z, type) {
     const color = COLORS[type] || '#ff00ff';
     ctx.fillStyle = color;
 
-    // Fill
     ctx.fillRect(Math.floor(screenX), Math.floor(screenY), Math.ceil(size), Math.ceil(size));
+
+    // Checkerboard Overlay
+    if ((Math.abs(x) + Math.abs(z)) % 2 !== 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(Math.floor(screenX), Math.floor(screenY), Math.ceil(size), Math.ceil(size));
+    }
+}
+
+function drawLabels(layer) {
+    // Basic Run-Length Labeling
+    // We scan visible Horizontal rows and Vertical columns
+
+    ctx.font = `bold ${Math.max(10, state.zoom * 0.6)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'white';
+    ctx.shadowColor = 'black';
+    ctx.shadowBlur = 2;
+
+    // Viewport bounds for iteration
+    const startX = Math.floor((-state.offsetX / state.zoom) - 2);
+    const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + 2);
+    const startZ = Math.floor((-state.offsetZ / state.zoom) - 2);
+    const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + 2);
+
+    // Horizontal Runs (scan z, then x)
+    for (let z = startZ; z <= endZ; z++) {
+        let runStart = null;
+        let lastType = null;
+
+        for (let x = startX; x <= endX + 1; x++) {
+            // Get block safely
+            let block = null;
+            if (layer.has(x) && layer.get(x).has(z)) {
+                block = layer.get(x).get(z);
+            }
+
+            if (block && (!runStart || block.type === lastType)) {
+                // Continue run
+                if (runStart === null) runStart = x;
+                lastType = block.type;
+            } else {
+                // Break run
+                if (runStart !== null) {
+                    const len = x - runStart;
+                    if (len > 1) { // Only label runs > 1
+                        drawLabel(runStart, z, len, 'h');
+                    }
+                    runStart = null;
+                }
+                // If this is a new block, start new run
+                if (block) {
+                    runStart = x;
+                    lastType = block.type;
+                }
+            }
+        }
+    }
+
+    // Vertical Runs
+    // (Optimization needed: Avoid double labeling? For now, just label > 2 vertical too)
+    // To scan vertically efficiently we need a better structure or just query
+
+    for (let x = startX; x <= endX; x++) {
+        if (!layer.has(x)) continue;
+        const col = layer.get(x);
+
+        let runStart = null;
+        let lastType = null;
+
+        for (let z = startZ; z <= endZ + 1; z++) {
+            let block = col.has(z) ? col.get(z) : null;
+
+            if (block && (!runStart || block.type === lastType)) {
+                if (runStart === null) runStart = z;
+                lastType = block.type;
+            } else {
+                if (runStart !== null) {
+                    const len = z - runStart;
+                    if (len > 1) {
+                        drawLabel(x, runStart, len, 'v');
+                    }
+                    runStart = null;
+                }
+                if (block) {
+                    runStart = z;
+                    lastType = block.type;
+                }
+            }
+        }
+    }
+}
+
+function drawLabel(startCoord, otherCoord, length, orient) {
+    if (length < 2) return;
+
+    // Calculate center of run
+    let cx, cz;
+    if (orient === 'h') {
+        // startCoord is X, other is Z
+        cx = startCoord + (length / 2) - 0.5; // -0.5 to center on boundary?? No. 
+        // Blocks at 0 and 1. Center is 1. 0.5 + 0.5 = 1.0
+        // Correct is (start + end)/2. End is start + length - 1.
+        // (start + start + length - 1) / 2 = start + length/2 - 0.5
+        cx = startCoord + (length / 2) - 0.5;
+        cz = otherCoord;
+    } else {
+        cx = otherCoord;
+        cz = startCoord + (length / 2) - 0.5;
+    }
+
+    const screenX = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
+    const screenY = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
+
+    ctx.fillText(`${length}`, screenX, screenY);
 }
 
 function updateSidebar(materials, count) {
