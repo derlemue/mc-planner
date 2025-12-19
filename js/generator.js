@@ -45,7 +45,7 @@ export function generateMinasTirith() {
     const TOTAL_LEVELS = 7;
     const CENTER_X = 0;
     const CENTER_Z = 0;
-    const BASE_Y = 64;
+    const BASE_Y = 10;
 
     // Radii for the 7 levels (outermost to innermost)
     const TIER_RADII = [280, 230, 185, 145, 110, 80, 45];
