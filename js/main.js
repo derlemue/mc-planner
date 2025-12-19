@@ -3,7 +3,7 @@ import { generateMinasTirith, generateEiffelTower, COLORS } from './generator.js
 // --- Global State ---
 const state = {
     world: null, // Map<y, Map<x, Map<z, block>>>
-    currentLayer: 30, // Changed from 70
+    currentLayer: 10, // Changed from 30
     minY: 0,
     maxY: 300,
     zoom: 2, // Pixels per block
@@ -244,14 +244,16 @@ function drawLabels(layer) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'white';
-    ctx.shadowColor = 'black';
-    ctx.shadowBlur = 2;
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; // Smooth corners
+    // No shadow needed if we stroke
 
-    // Viewport bounds for iteration
-    const startX = Math.floor((-state.offsetX / state.zoom) - 2);
-    const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + 2);
-    const startZ = Math.floor((-state.offsetZ / state.zoom) - 2);
-    const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + 2);
+    // Viewport bounds for iteration (Increased padding)
+    const startX = Math.floor((-state.offsetX / state.zoom) - 5);
+    const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + 5);
+    const startZ = Math.floor((-state.offsetZ / state.zoom) - 5);
+    const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + 5);
 
     // Horizontal Runs (scan z, then x)
     for (let z = startZ; z <= endZ; z++) {
@@ -342,6 +344,7 @@ function drawLabel(startCoord, otherCoord, length, orient) {
     const screenX = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
     const screenY = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
 
+    ctx.strokeText(`${length}`, screenX, screenY);
     ctx.fillText(`${length}`, screenX, screenY);
 }
 

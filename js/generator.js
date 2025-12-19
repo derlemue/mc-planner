@@ -18,7 +18,9 @@ export const COLORS = {
     'wall_outline': '#b0bec5',
     'iron_block': '#e0e0e0',
     'cobblestone': '#505050',
-    'obsidian': '#1a1a1a'
+    'obsidian': '#1a1a1a',
+    'sea_lantern': '#b2dbbf',
+    'redstone_lamp': '#f0e68c'
 };
 
 export function generateMinasTirith() {
@@ -67,7 +69,7 @@ export function generateMinasTirith() {
             const dist = Math.sqrt(x * x + z * z);
             if (dist <= baseRadius) {
                 // Slight noisy terrain variance could go here, for now flat
-                setBlock(x, 63, z, 'grass_block');
+                setBlock(x, 9, z, 'grass_block');
             }
         }
     }
@@ -106,6 +108,11 @@ export function generateMinasTirith() {
                         // Add a road ring?
                         if (dist > (outerRadius - 6) && dist < (outerRadius - 1)) {
                             setBlock(x, currentY, z, 'stone'); // Road
+                        }
+
+                        // Detail: Fountain in the Prow area (Tier 0)
+                        if (t === 0 && x > 200 && x < 220 && Math.abs(z) < 10) {
+                            setBlock(x, currentY, z, 'water');
                         }
                     } else {
                         // Inside innerRadius: This is the foundation for the NEXT tier up
@@ -237,6 +244,10 @@ export function generateEiffelTower() {
                     setBlock(x, absY, z, 'iron_block');
                 }
             }
+            // Beacon at the very top
+            if (y === TOWER_HEIGHT + 20) {
+                setBlock(0, absY + 1, 0, 'sea_lantern');
+            }
             continue;
         }
 
@@ -260,7 +271,12 @@ export function generateEiffelTower() {
                     if (d <= platW) {
                         // Floor
                         if (d === platW && (x + z) % 2 === 0) {
-                            setBlock(x, absY, z, 'stone'); // Railing substitute
+                            // Corners
+                            if (Math.abs(x) === platW && Math.abs(z) === platW) {
+                                setBlock(x, absY, z, 'sea_lantern');
+                            } else {
+                                setBlock(x, absY, z, 'stone'); // Railing
+                            }
                         } else {
                             setBlock(x, absY, z, type);
                         }
