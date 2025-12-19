@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [1.3.0] - 2025-12-20
+### Fixed
+- Corrected layer switching mechanism for automated screenshot generation.
+- Validated meaningful content in documentation images.
+
 ## [1.2.0] - 2025-12-19
 ### Added
 - Decorative elements: Sea lanterns and Redstone lamps for lighting details.
