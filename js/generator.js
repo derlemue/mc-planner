@@ -20,7 +20,9 @@ export const COLORS = {
 
 export function generateMinasTirith() {
     console.time('Generation');
+    console.log('Starting generation...');
     const world = new Map(); // Y -> X -> Z -> Block
+    let totalBlocks = 0;
 
     const setBlock = (x, y, z, blockType) => {
         // Simple optimization: don't store air
@@ -33,6 +35,7 @@ export function generateMinasTirith() {
         const row = layer.get(x);
 
         row.set(z, { type: blockType });
+        totalBlocks++;
     };
 
     // --- CONFIGURATION ---
@@ -197,6 +200,7 @@ export function generateMinasTirith() {
     // Wings of the tower (Hall of Kings)
     // ... Simplified box for now
 
+    console.log(`Generation complete. Total blocks: ${totalBlocks}`);
     console.timeEnd('Generation');
     return world;
 }

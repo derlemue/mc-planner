@@ -13,10 +13,21 @@ A professional web-based planning tool for recreating **Minas Tirith** in Minecr
 - **Premium UI**: Modern dark mode interface with smooth controls.
 
 ## Usage
-1. Open `index.html` in any modern web browser.
-2. Use the **Level Y** slider to select the vertical layer you are building.
-3. Use the mouse to **Pan** (Click & Drag) and the UI buttons to **Zoom**.
-4. Refer to the **Material Manifest** in the sidebar for block counts.
+### Quick Start
+To run the application, you must use a local web server due to browser security restrictions on loading modules from `file://`.
+
+1. Open a terminal in the project folder.
+2. Run a simple HTTP server:
+   ```bash
+   python3 -m http.server 8080
+   ```
+3. Open your browser to [http://localhost:8080](http://localhost:8080).
+
+### Controls
+- **Level Y Slider**: Select the vertical layer you are building.
+- **Pan**: Click and Drag to move the view.
+- **Zoom**: Use the `+` / `-` buttons.
+- **Material List**: View required blocks for the current layer in the sidebar.
 
 ## Inspiration
 Based on the architecture of Minas Tirith as seen in *The Lord of the Rings* and popularized in Minecraft by projects like **CraftAttack 13**.

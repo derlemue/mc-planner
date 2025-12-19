@@ -14,6 +14,10 @@ const state = {
     lastMouseZ: 0
 };
 
+// Expose for debugging
+window.dbgState = state;
+window.render = render;
+
 // --- DOM Elements ---
 const canvas = document.getElementById('blueprint-canvas');
 const ctx = canvas.getContext('2d');
@@ -46,8 +50,14 @@ function init() {
             // Set slider bounds
             layerSlider.min = state.minY;
             layerSlider.max = state.maxY;
+
+            // Set initial layer to something interesting if 70 is empty (though it shouldn't be)
+            if (!state.world.has(70)) {
+                state.currentLayer = yLevels[0];
+            }
         }
 
+        console.log(`Initialized. MinY: ${state.minY}, MaxY: ${state.maxY}, Current: ${state.currentLayer}`);
         loadingOverlay.classList.add('hidden');
         render();
     }, 50);
@@ -61,13 +71,16 @@ function resizeCanvas() {
     canvas.height = canvas.parentElement.clientHeight;
     state.offsetX = canvas.width / 2;
     state.offsetZ = canvas.height / 2;
+    console.log(`Canvas resized: ${canvas.width}x${canvas.height}`);
     render();
 }
 
 function render() {
+    console.log(`Rendering Layer ${state.currentLayer} (Zoom: ${state.zoom}, Offset: ${state.offsetX},${state.offsetZ})`);
+
     // Clear
     ctx.fillStyle = '#020617'; // Match bg
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height); // Use fillRect to ensure background
 
     // Draw Grid (Background)
     drawGrid();
@@ -75,7 +88,7 @@ function render() {
     // Render Blocks
     if (!state.world) return;
 
-    const layer = state.world.get(state.currentLayer);
+    const layer = state.world.get(parseInt(state.currentLayer)); // Ensure int
     const materials = new Map();
     let blockCount = 0;
 
@@ -91,6 +104,8 @@ function render() {
                 materials.set(block.type, (materials.get(block.type) || 0) + 1);
             }
         }
+    } else {
+        console.log(`No data for layer ${state.currentLayer}`);
     }
 
     // Draw Ghost/Lower layers for context? (Optional, maybe too messy)
