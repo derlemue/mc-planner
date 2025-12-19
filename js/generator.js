@@ -15,7 +15,10 @@ export const COLORS = {
     'wood': '#8d6e63',
     'water': '#4fc3f7',
     'gold_block': '#ffd700',
-    'wall_outline': '#b0bec5'
+    'wall_outline': '#b0bec5',
+    'iron_block': '#e0e0e0',
+    'cobblestone': '#505050',
+    'obsidian': '#1a1a1a'
 };
 
 export function generateMinasTirith() {
@@ -197,9 +200,6 @@ export function generateMinasTirith() {
         }
     }
 
-    // Wings of the tower (Hall of Kings)
-    // ... Simplified box for now
-
     console.log(`Generation complete. Total blocks: ${totalBlocks}`);
     console.timeEnd('Generation');
     return world;
@@ -207,7 +207,7 @@ export function generateMinasTirith() {
 
 export function generateEiffelTower() {
     console.time('Generation-Eiffel');
-    console.log('Generating Eiffel Tower...');
+    console.log('Generating Eiffel Tower (Refined)...');
     const world = new Map();
     let totalBlocks = 0;
 
@@ -223,94 +223,80 @@ export function generateEiffelTower() {
 
     // Constants
     const CENTER_Y = 64;
-    const TOWER_HEIGHT = 220; // ~220 blocks
-    const BASE_WIDTH = 64; // +/- 32
+    const TOWER_HEIGHT = 250;
 
-    // We use a power function for the curve: width = a * (height - y)^k
-    // Or simpler: width = BASE_WIDTH * exp(-k * relativeY)
-
-    for (let y = 0; y <= TOWER_HEIGHT; y++) {
+    for (let y = 0; y <= TOWER_HEIGHT + 20; y++) {
         const absY = CENTER_Y + y;
         const progress = y / TOWER_HEIGHT;
 
-        // Curve calculation (Exponential Decay)
-        // At y=0, width ~ 32. At y=220, width ~ 2
-        // y=0 -> w=32. y=1 -> w=0? No.
-        const w = 32 * Math.pow((1 - progress), 1.5) + 2;
+        // --- Antenna (Top) ---
+        if (y > TOWER_HEIGHT) {
+            const antennaWidth = (y > TOWER_HEIGHT + 15) ? 0 : 1;
+            for (let x = -antennaWidth; x <= antennaWidth; x++) {
+                for (let z = -antennaWidth; z <= antennaWidth; z++) {
+                    setBlock(x, absY, z, 'iron_block');
+                }
+            }
+            continue;
+        }
 
-        // Platforms (Solid floors)
-        const isPlatform = (y === 57 || y === 115 || y === 200 || y === TOWER_HEIGHT);
+        // --- Main Curve (Exponential) ---
+        // Width decreases as we go up
+        const w = 36 * Math.pow((1 - progress), 1.8) + 2;
 
-        if (isPlatform) {
-            // Solid Platform
-            const platW = Math.ceil(w + 4); // Slightly wider
+        // --- Platforms ---
+        // 1st Floor (~57m), 2nd Floor (~115m), 3rd Floor (Top)
+        const isPlatform1 = (y >= 55 && y <= 58);
+        const isPlatform2 = (y >= 113 && y <= 116);
+        const isTopPlatform = (y >= TOWER_HEIGHT - 5 && y <= TOWER_HEIGHT);
+
+        if (isPlatform1 || isPlatform2 || isTopPlatform) {
+            const platW = Math.ceil(w + (isTopPlatform ? 4 : 6));
+            const type = isTopPlatform ? 'wall_outline' : 'stone_brick'; // Use existing keys
+
             for (let x = -platW; x <= platW; x++) {
                 for (let z = -platW; z <= platW; z++) {
                     const d = Math.max(Math.abs(x), Math.abs(z));
-                    if (d <= platW && (d === platW || d % 2 === 0)) { // Grating pattern?
-                        setBlock(x, absY, z, 'stone');
-                    }
-                    if (d < platW - 1) { // Railing check
-                        setBlock(x, absY, z, 'stone');
-                    }
-                }
-            }
-        } else {
-            // Legs / Lattice
-            // The tower has 4 distinct legs that merge
-            // At bottom (y=0), legs are separate.
-            // Leg separation decreases as y increases.
-
-            // Center of a leg at height y
-            const legOffset = w * 0.8;
-            const legThickness = Math.max(2, 6 * (1 - progress));
-
-            // If y > mergePoint (~120), legs touch/merge
-            const isMerged = y > 120;
-
-            // Draw 4 symmetric legs
-            const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
-
-            dirs.forEach(([dx, dz]) => {
-                const cx = (isMerged ? 0 : dx * legOffset);
-                const cz = (isMerged ? 0 : dz * legOffset);
-
-                // Draw leg "column" for this slice
-                // Simple square/circle for the leg cross-section
-                for (let lx = -legThickness; lx <= legThickness; lx++) {
-                    for (let lz = -legThickness; lz <= legThickness; lz++) {
-                        // Position relative to leg center
-                        const finalX = Math.round(cx + lx);
-                        const finalZ = Math.round(cz + lz);
-
-                        // Hollow Lattice Logic
-                        // Only draw if on edge or periodic
-                        const isEdge = (Math.abs(lx) >= legThickness - 1 || Math.abs(lz) >= legThickness - 1);
-                        const isLattice = ((absY % 5 === 0) || (finalX % 3 === 0 && finalZ % 3 === 0));
-
-                        if (isEdge || isLattice) {
-                            setBlock(finalX, absY, finalZ, 'stone_brick');
+                    if (d <= platW) {
+                        // Floor
+                        if (d === platW && (x + z) % 2 === 0) {
+                            setBlock(x, absY, z, 'stone'); // Railing substitute
+                        } else {
+                            setBlock(x, absY, z, type);
                         }
                     }
                 }
+            }
+            continue;
+        }
 
-                // Cross bracing between legs (Arch)
-                // Bottom arch (Y=0 to Y=30)
-                if (y < 40) {
-                    // An arch connects the legs
-                    // Dist from center < something
-                }
-            });
+        // --- Legs / Lattice ---
+        // 4 Legs at bottom, merging into one spire
+        const legOffset = w * 0.85;
+        const legThickness = Math.max(1, 4 * (1 - progress));
 
-            // Central Spire (Top 50 blocks)
-            if (y > TOWER_HEIGHT - 50) {
-                for (let x = -1; x <= 1; x++) {
-                    for (let z = -1; z <= 1; z++) {
-                        setBlock(x, absY, z, 'gold_block');
+        const isMerged = y > 130;
+
+        const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+        dirs.forEach(([dx, dz]) => {
+            const cx = (isMerged ? 0 : dx * legOffset);
+            const cz = (isMerged ? 0 : dz * legOffset);
+
+            for (let lx = -legThickness; lx <= legThickness; lx++) {
+                for (let lz = -legThickness; lz <= legThickness; lz++) {
+                    const finalX = Math.round(cx + lx);
+                    const finalZ = Math.round(cz + lz);
+
+                    const isEdge = (Math.abs(lx) >= legThickness - 1 || Math.abs(lz) >= legThickness - 1);
+                    const isBrace = ((absY % 6) === 0 || (finalX + finalZ) % 4 === 0);
+
+                    if (isEdge || isBrace) {
+                        const mat = (y < 50) ? 'stone' : 'stone_brick';
+                        setBlock(finalX, absY, finalZ, mat);
                     }
                 }
             }
-        }
+        });
     }
 
     console.log(`Generation complete. Total blocks: ${totalBlocks}`);
