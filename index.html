@@ -120,6 +120,17 @@
                 </div>
             </div>
         </div>
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box glass-panel">
+            <h2>Restricted Access</h2>
+            <p>Enter passkey to initialize system.</p>
+            <div class="input-group">
+                <input type="password" id="login-password" placeholder="Passkey" autofocus>
+                <button id="login-btn">Unlock</button>
+            </div>
+            <p id="login-error" class="error-msg hidden">Access Denied</p>
+        </div>
+    </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
