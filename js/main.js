@@ -539,28 +539,23 @@ function drawMergedLabel(group, orient) {
     }
 
     // Inverse convert back to "label centered relative coords" for drawLabelText?
+    // FIX: We need to pass BOTH the true World Center (for arrows) and the Screen Center (for text).
     // drawLabelText takes World Coords (cx, cz). 
-    // We calculated screen coords. Let's modify drawLabelText to take screen coords optional?
-    // Or just convert back.
 
-    const finalCX = (screenX - state.offsetX - (state.zoom / 2)) / state.zoom;
-    const finalCZ = (screenY - state.offsetZ - (state.zoom / 2)) / state.zoom;
+    // We already have labelX, labelZ as true world centers.
+    // And screenX, screenY as the sticky text position.
 
-    drawLabelText(finalCX, finalCZ, first.len, orient);
+    drawLabelText(labelX, labelZ, first.len, orient, screenX, screenY);
 }
 
-function drawLabelText(cx, cz, length, orient) {
-    const screenX = state.offsetX + (cx * state.zoom) + (state.zoom / 2); // Center of block
-    // Actually cx is already centered? 
-    // Wait, in previous code: cx = start + len/2 - 0.5. 
-    // ScreenX = offset + cx*zoom + zoom/2.
-    // If cx is 0.5 (center of 0 and 1), screenX = off + 0.5*z + 0.5*z = off + z. Correct.
+function drawLabelText(cx, cz, length, orient, textSx, textSy) {
+    // True World Center for Arrows
+    const arrowSx = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
+    const arrowSy = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
 
-    // Check our cx calculation above.
-    // H-run: labelX = startX + len/2 - 0.5. Correct.
-
-    const sx = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
-    const sy = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
+    // Use sticky text position if provided, else default to arrow position
+    const sx = textSx !== undefined ? textSx : arrowSx;
+    const sy = textSy !== undefined ? textSy : arrowSy;
 
     // CAD Style Dimension Lines
     // If length > 3, draw arrows. If not, just text.
@@ -574,45 +569,41 @@ function drawLabelText(cx, cz, length, orient) {
         const arrowSize = Math.min(6, state.zoom / 3);
 
         if (orient === 'h') {
-            // Horizontal Line
-            ctx.moveTo(sx - halfLenPx + 2, sy);
-            ctx.lineTo(sx + halfLenPx - 2, sy);
+            // Horizontal Line (Uses Arrow Position)
+            ctx.moveTo(arrowSx - halfLenPx + 2, arrowSy);
+            ctx.lineTo(arrowSx + halfLenPx - 2, arrowSy);
 
             // Arrows
             // Left Arrow
-            ctx.moveTo(sx - halfLenPx + 2 + arrowSize, sy - arrowSize);
-            ctx.lineTo(sx - halfLenPx + 2, sy);
-            ctx.lineTo(sx - halfLenPx + 2 + arrowSize, sy + arrowSize);
+            ctx.moveTo(arrowSx - halfLenPx + 2 + arrowSize, arrowSy - arrowSize);
+            ctx.lineTo(arrowSx - halfLenPx + 2, arrowSy);
+            ctx.lineTo(arrowSx - halfLenPx + 2 + arrowSize, arrowSy + arrowSize);
 
             // Right Arrow
-            ctx.moveTo(sx + halfLenPx - 2 - arrowSize, sy - arrowSize);
-            ctx.lineTo(sx + halfLenPx - 2, sy);
-            ctx.lineTo(sx + halfLenPx - 2 - arrowSize, sy + arrowSize);
+            ctx.moveTo(arrowSx + halfLenPx - 2 - arrowSize, arrowSy - arrowSize);
+            ctx.lineTo(arrowSx + halfLenPx - 2, arrowSy);
+            ctx.lineTo(arrowSx + halfLenPx - 2 - arrowSize, arrowSy + arrowSize);
 
         } else {
             // Vertical Line
-            ctx.moveTo(sx, sy - halfLenPx + 2);
-            ctx.lineTo(sx, sy + halfLenPx - 2);
+            ctx.moveTo(arrowSx, arrowSy - halfLenPx + 2);
+            ctx.lineTo(arrowSx, arrowSy + halfLenPx - 2);
 
             // Top Arrow
-            ctx.moveTo(sx - arrowSize, sy - halfLenPx + 2 + arrowSize);
-            ctx.lineTo(sx, sy - halfLenPx + 2);
-            ctx.lineTo(sx + arrowSize, sy - halfLenPx + 2 + arrowSize);
+            ctx.moveTo(arrowSx - arrowSize, arrowSy - halfLenPx + 2 + arrowSize);
+            ctx.lineTo(arrowSx, arrowSy - halfLenPx + 2);
+            ctx.lineTo(arrowSx + arrowSize, arrowSy - halfLenPx + 2 + arrowSize);
 
             // Bottom Arrow
-            ctx.moveTo(sx - arrowSize, sy + halfLenPx - 2 - arrowSize);
-            ctx.lineTo(sx, sy + halfLenPx - 2);
-            ctx.lineTo(sx + arrowSize, sy + halfLenPx - 2 - arrowSize);
+            ctx.moveTo(arrowSx - arrowSize, arrowSy + halfLenPx - 2 - arrowSize);
+            ctx.lineTo(arrowSx, arrowSy + halfLenPx - 2);
+            ctx.lineTo(arrowSx + arrowSize, arrowSy + halfLenPx - 2 - arrowSize);
         }
         ctx.stroke();
         ctx.restore();
     }
 
-    // Text (with background box for readability over lines)
-    // Actually, just stroke is enough if line is thin.
-    // Or clear rect behind text?
-    // Let's rely on the thick black stroke of the text.
-
+    // Text (uses Sticky Position sx, sy)
     ctx.fillStyle = '#ffffff'; // White text
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3;
