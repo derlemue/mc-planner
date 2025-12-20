@@ -519,6 +519,7 @@ input[type="number"] {
 .controls-symbol {
     font-size: 1.2rem;
 }
+
 /* Login Overlay */
 .login-overlay {
     position: fixed;
@@ -581,7 +582,10 @@ input[type="number"] {
 
 .login-box button {
     width: auto;
-    padding: 0 24px;
+    height: auto;
+    /* Override global fixed height */
+    padding: 12px 24px;
+    /* Match input padding vertically */
     background: var(--accent);
     border: none;
     font-weight: 600;
@@ -601,7 +605,17 @@ input[type="number"] {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
 }
