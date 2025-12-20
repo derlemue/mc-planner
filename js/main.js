@@ -256,8 +256,12 @@ function drawBlock(x, z, type) {
 }
 
 function drawLabels(layer) {
-    // Basic Run-Length Labeling
-    // We scan visible Horizontal rows and Vertical columns
+    // Improved Labeling Logic:
+    // 1. Show labels at lower zoom ( > 4)
+    // 2. Scan off-screen to get TRUE total length
+    // 3. Dynamic clutter filtering
+
+    if (state.zoom <= 4) return; // Threshold lowered from 10
 
     ctx.font = `bold ${Math.max(10, state.zoom * 0.6)}px sans-serif`;
     ctx.textAlign = 'center';
@@ -265,88 +269,167 @@ function drawLabels(layer) {
     ctx.fillStyle = 'white';
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 3;
-    ctx.lineJoin = 'round'; // Smooth corners
-    // No shadow needed if we stroke
+    ctx.lineJoin = 'round';
 
-    // Viewport bounds for iteration (Increased padding)
-    const startX = Math.floor((-state.offsetX / state.zoom) - 5);
-    const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + 5);
-    const startZ = Math.floor((-state.offsetZ / state.zoom) - 5);
-    const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + 5);
+    // Viewport bounds
+    // We scan slightly outside viewport to catch runs starting just off-screen
+    // preventing "pop-in" of labels.
+    const padding = 2; // Blocks
+    const startX = Math.floor((-state.offsetX / state.zoom) - padding);
+    const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + padding);
+    const startZ = Math.floor((-state.offsetZ / state.zoom) - padding);
+    const endZ = Math.ceil(((canvas.height - state.offsetZ) / state.zoom) + padding);
 
-    // Unified Label Storage
     const hLabels = [];
     const vLabels = [];
 
-    // Horizontal Scanning
+    // Helper: Scan full length of a run
+    const getRunLength = (x, z, type, dir) => {
+        let length = 1; // Current block
+
+        // Scan Backwards
+        let scan = (dir === 'h') ? x - 1 : z - 1;
+        while (true) {
+            // Check world limits or arbitrary safe usage limit (e.g. 500 blocks away)
+            const mapX = (dir === 'h') ? scan : x;
+            const mapZ = (dir === 'h') ? z : scan;
+
+            // Access deeply nested map safely
+            let block = null;
+            if (layer.has(mapX) && layer.get(mapX).has(mapZ)) {
+                block = layer.get(mapX).get(mapZ);
+            }
+
+            if (block && block.type === type && !state.hiddenMaterials.has(block.type)) {
+                length++;
+                scan--;
+            } else {
+                break;
+            }
+        }
+        const runStart = scan + 1; // Actual start index
+
+        // Scan Forwards
+        scan = (dir === 'h') ? x + 1 : z + 1;
+        while (true) {
+            const mapX = (dir === 'h') ? scan : x;
+            const mapZ = (dir === 'h') ? z : scan;
+
+            let block = null;
+            if (layer.has(mapX) && layer.get(mapX).has(mapZ)) {
+                block = layer.get(mapX).get(mapZ);
+            }
+
+            if (block && block.type === type && !state.hiddenMaterials.has(block.type)) {
+                length++;
+                scan++;
+            } else {
+                break;
+            }
+        }
+        // runEnd is scan - 1
+
+        return { length, start: runStart };
+    };
+
+    // Horizontal Scanning (Visible Area)
     for (let z = startZ; z <= endZ; z++) {
-        let runStart = null;
         let lastType = null;
-        for (let x = startX; x <= endX + 1; x++) {
+        let visitedX = -Infinity; // Optimize: skip checking blocks we already counted in current loop run
+
+        for (let x = startX; x <= endX; x++) {
+            if (x <= visitedX) continue;
+
             let block = null;
             if (layer.has(x) && layer.get(x).has(z)) {
                 block = layer.get(x).get(z);
-                // SKIP HIDDEN MATERIALS in Labeling
-                if (state.hiddenMaterials.has(block.type)) {
-                    block = null; // Treat as empty space
-                }
+                if (state.hiddenMaterials.has(block.type)) block = null;
             }
-            if (block && (!runStart || block.type === lastType)) {
-                if (runStart === null) runStart = x;
+
+            if (block) {
+                if (block.type !== lastType) {
+                    // New run found
+                    // Full scan!
+                    const { length, start } = getRunLength(x, z, block.type, 'h');
+
+                    // Filter: Clutter control
+                    // At low zoom, hide small runs
+                    if (state.zoom < 8 && length < 5) {
+                        // Skip adding label
+                    } else if (length > 2) { // Determine minimum length to label generally
+                        // Only add if not already added?
+                        // We are iterating X. If we find a run that started way back at -100, 
+                        // and we are at startX (e.g. 0), we should add it.
+                        // But if we encounter the SAME run at x+1, we shouldn't add it twice.
+                        // Simple dedup: We only add if x == start OR x == startX (first visible block of run)
+
+                        // Better: We found a run. We know its start and length.
+                        // We can define the "ID" of this run by its start coord.
+                        // We add it to hLabels.
+                        hLabels.push({ x: start, z: z, len: length, type: 'h' });
+                    }
+
+                    // Optimization: Skip loop to end of *visible* part of this run?
+                    // No, because we might have different materials interleaved (unlikely if contig run logic holds)
+                    // If we found a run of length 10 starting at X, we know X+1..X+9 are same type.
+                    // We can skip visibleX set.
+                    const runEnd = start + length - 1;
+                    visitedX = runEnd;
+                }
                 lastType = block.type;
             } else {
-                if (runStart !== null) {
-                    const len = x - runStart;
-                    if (len > 2) {
-                        hLabels.push({ x: runStart, z: z, len: len, type: 'h' });
-                    }
-                    runStart = null;
-                }
-                if (block) {
-                    runStart = x;
-                    lastType = block.type;
-                }
+                lastType = null;
             }
         }
     }
 
     // Vertical Scanning
+    // Note: Iterate X then Z is more cache friendly usually, but map structure is Y->X->Z.
+    // So for Vertical (Iterate Z along fixed X), we pick an X and go down Z.
     for (let x = startX; x <= endX; x++) {
         if (!layer.has(x)) continue;
-        const col = layer.get(x);
-        let runStart = null;
-        let lastType = null;
-        for (let z = startZ; z <= endZ + 1; z++) {
-            let block = col.has(z) ? col.get(z) : null;
-            if (block && state.hiddenMaterials.has(block.type)) {
-                block = null; // Treat as empty
-            }
+        const row = layer.get(x);
 
-            if (block && (!runStart || block.type === lastType)) {
-                if (runStart === null) runStart = z;
+        let lastType = null;
+        let visitedZ = -Infinity;
+
+        for (let z = startZ; z <= endZ; z++) {
+            if (z <= visitedZ) continue;
+
+            let block = row.has(z) ? row.get(z) : null;
+            if (block && state.hiddenMaterials.has(block.type)) block = null;
+
+            if (block) {
+                if (block.type !== lastType) {
+                    const { length, start } = getRunLength(x, z, block.type, 'v');
+
+                    if (state.zoom < 8 && length < 5) {
+                        // skip
+                    } else if (length > 2) {
+                        vLabels.push({ x: x, z: start, len: length, type: 'v' });
+                    }
+
+                    // Skip ahead
+                    const runEnd = start + length - 1;
+                    visitedZ = runEnd;
+                }
                 lastType = block.type;
             } else {
-                if (runStart !== null) {
-                    const len = z - runStart;
-                    if (len > 2) {
-                        vLabels.push({ x: x, z: runStart, len: len, type: 'v' });
-                    }
-                    runStart = null;
-                }
-                if (block) {
-                    runStart = z;
-                    lastType = block.type;
-                }
+                lastType = null;
             }
         }
     }
 
-    // Merging Logic
-    // We merge H-labels that are stacked vertically (same x, same len, adjacent z)
+    // Deduplicate?
+    // Our logic pushes a label for every 'segment start' encountered.
+    // Since we skip 'visited', we generally won't duplicate within one frame for one axis.
+    // However, hLabels might contain duplicates if we re-scanned? No, visual loop is linear.
+
+    // Merging Logic (Keep existing Merged logic for stacked walls)
+    // We just need to fit our new simple label objects into the merge function expectations.
+
     const mergeLabels = (labels, orient) => {
         if (labels.length === 0) return;
-        // Sort: primary by secondary-coord, then by primary-coord
-        // For H (vary Z): sort by X, then Len, then Z
         if (orient === 'h') {
             labels.sort((a, b) => a.x - b.x || a.len - b.len || a.z - b.z);
         } else {
@@ -360,6 +443,7 @@ function drawLabels(layer) {
             const curr = labels[i];
 
             let isAdjacent = false;
+            // Strict adjacency for merging stacking walls
             if (orient === 'h') {
                 isAdjacent = (curr.x === prev.x && curr.len === prev.len && curr.z === prev.z + 1);
             } else {
@@ -385,9 +469,9 @@ function drawMergedLabel(group, orient) {
     const first = group[0];
     const last = group[group.length - 1];
 
-    // Pick the "middle" item's coordinates
-    // If H-run: x is same, z varies. Center Z = (first.z + last.z) / 2
     let labelZ = (first.z + last.z) / 2;
+    // For position x, we use the CENTER of the run.
+    // first.x is the start block. len is length. Center is start + len/2 - 0.5
     let labelX = (orient === 'h') ? (first.x + first.len / 2 - 0.5) : first.x;
 
     if (orient === 'v') {
@@ -395,12 +479,74 @@ function drawMergedLabel(group, orient) {
         labelZ = first.z + first.len / 2 - 0.5;
     }
 
-    // Only draw if the width of the group (ortho to run) is small OR if we are in the middle of a huge block.
-    // If we have a 27x27 block, we have one group of 27 H-labels and one group of 27 V-labels.
-    // Both will try to draw a "27" in the exact center.
-    // This results in two "27"s on top of each other. That's fine, looks like one bold 27.
+    // CLAMPING to Viewport
+    // The calculated labelX/labelZ is the true center of the wall.
+    // If the wall is huge, this center might be off-screen.
+    // We want to draw the text at a visible position along the wall, closest to center?
+    // Or just clamped to screen edges with padding.
 
-    drawLabelText(labelX, labelZ, first.len, orient);
+    // Convert World Center to Screen Center
+    let screenX = state.offsetX + (labelX * state.zoom) + (state.zoom / 2);
+    let screenY = state.offsetZ + (labelZ * state.zoom) + (state.zoom / 2); // screenY corresponds to Z in world
+
+    // Bounds for text clamping
+    const margin = 50;
+
+    // Logic: 
+    // If Horizontal wall: screenY is fixed (row). screenX (column/length) can slide.
+    // Valid ScreenX range for this wall: 
+    // StartWorldX -> ScreenStart, EndWorldX -> ScreenEnd.
+
+    if (orient === 'h') {
+        const worldStart = first.x;
+        const worldEnd = first.x + first.len;
+        const sStart = state.offsetX + (worldStart * state.zoom);
+        const sEnd = state.offsetX + (worldEnd * state.zoom);
+
+        // Clamp screenX to be within [sStart, sEnd] AND within [0+margin, canvas.width-margin]
+        // But strictly within the wall bounds is priority.
+
+        const visibleMin = Math.max(sStart, margin);
+        const visibleMax = Math.min(sEnd, canvas.width - margin);
+
+        if (visibleMin < visibleMax) {
+            // We have visible space. Center within that space? 
+            // Or stick to true center if visible?
+            // "Sticky" behavior: Keep true center if visible. If getting clipped, slide.
+            screenX = Math.max(visibleMin, Math.min(screenX, visibleMax));
+        } else {
+            // Not visible enough? Or simple clamping.
+            // If completely offscreen, we don't draw text anyway?
+            // drawLabelText handles 'if' checks? No, we just pass coords.
+            // However, if sEnd < 0 or sStart > width, we generally shouldn't draw.
+            if (sEnd < 0 || sStart > canvas.width) return;
+        }
+    } else {
+        // Vertical wall
+        const worldStart = first.z;
+        const worldEnd = first.z + first.len;
+        const sStart = state.offsetZ + (worldStart * state.zoom);
+        const sEnd = state.offsetZ + (worldEnd * state.zoom);
+
+        const visibleMin = Math.max(sStart, margin);
+        const visibleMax = Math.min(sEnd, canvas.height - margin);
+
+        if (visibleMin < visibleMax) {
+            screenY = Math.max(visibleMin, Math.min(screenY, visibleMax));
+        } else {
+            if (sEnd < 0 || sStart > canvas.height) return;
+        }
+    }
+
+    // Inverse convert back to "label centered relative coords" for drawLabelText?
+    // drawLabelText takes World Coords (cx, cz). 
+    // We calculated screen coords. Let's modify drawLabelText to take screen coords optional?
+    // Or just convert back.
+
+    const finalCX = (screenX - state.offsetX - (state.zoom / 2)) / state.zoom;
+    const finalCZ = (screenY - state.offsetZ - (state.zoom / 2)) / state.zoom;
+
+    drawLabelText(finalCX, finalCZ, first.len, orient);
 }
 
 function drawLabelText(cx, cz, length, orient) {
