@@ -537,7 +537,8 @@ function setupControls() {
     };
 
     // Mouse Wheel Zoom
-    canvas.addEventListener('wheel', (e) => {
+    // Attach to parent to ensure we catch it even if canvas has issues
+    canvas.parentElement.addEventListener('wheel', (e) => {
         e.preventDefault();
         const zoomFactor = 1.1;
         if (e.deltaY < 0) {
@@ -549,6 +550,19 @@ function setupControls() {
         }
         render();
     }, { passive: false });
+
+    // Keyboard Navigation (Layers)
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') {
+            // Layer Up
+            const next = Math.min(state.currentLayer + 1, state.maxY);
+            updateLayer(next);
+        } else if (e.key === 'ArrowLeft') {
+            // Layer Down
+            const prev = Math.max(state.currentLayer - 1, state.minY);
+            updateLayer(prev);
+        }
+    });
 
     // Legend
     const legendPanel = document.getElementById('legend-panel');
