@@ -536,6 +536,20 @@ function setupControls() {
         render();
     };
 
+    // Mouse Wheel Zoom
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = 1.1;
+        if (e.deltaY < 0) {
+            // Zoom In
+            state.zoom = Math.min(state.zoom * zoomFactor, 40);
+        } else {
+            // Zoom Out
+            state.zoom = Math.max(state.zoom / zoomFactor, 1);
+        }
+        render();
+    }, { passive: false });
+
     // Legend
     const legendPanel = document.getElementById('legend-panel');
     const legendToggle = document.getElementById('legend-toggle');
