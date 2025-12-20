@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [2.1.0] - 2025-12-20
+### Added
+- **Secure Login**: Access protection with password authentication ("1337").
+- **Live Demo**: Link added to README.
+
+### Changed
+- **Rotation**: Minas Tirith generator rotated 180 degrees (Entrance facing West).
+- **Responsive Login UI**: Improved mobile layout for login screen.
+- **Input Grouping**: Refined CSS for seamless input/button integration.
+
 ## [2.0.0-beta] - 2025-12-20
 ### Added
 - **Auto-Hide Legend**: The legend overlay automatically minimizes after 10 seconds to reduce clutter.

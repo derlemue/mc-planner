@@ -1,11 +1,16 @@
 # 🏰 MC Planner: Minas Tirith Edition
 
 ![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
-![Version](https://img.shields.io/badge/Version-2.0.0--beta-orange.svg)
+![Version](https://img.shields.io/badge/Version-2.1.0-orange.svg)
 
 **The ultimate planning tool for recreating the White City on your multiplayer server.**
 
 Based on the architecture popularized by **CraftAttack 13**, this tool generates precise, layer-by-layer blueprints for Minas Tirith, including the 7 concentric tiers, the Great Prow, and the Tower of Ecthelion.
+
+---
+
+## 🌐 Live Demo
+Visit **[plan.mc.lemue.org](https://plan.mc.lemue.org/)** to try it out instantly.
 
 ---
 
@@ -26,7 +31,7 @@ Zoom in to see clear **width and depth arrow indicators**.
 ## 🚀 Usage
 
 ### Quick Start
-Due to browser security policies (CORS), this application must be run via a local web server.
+Due to browser security policies (CORS), this application must be run via a local web server, OR use the live demo above.
 
 1. **Clone & Enter Directory**
    ```bash
