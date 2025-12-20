@@ -565,6 +565,8 @@ input[type="number"] {
 
 .login-box input {
     flex: 1;
+    min-width: 0;
+    /* Critical for flex shrinking */
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--glass-border);
     color: white;
@@ -594,6 +596,25 @@ input[type="number"] {
     border-radius: 0 8px 8px 0;
     /* Right corners only */
     font-weight: 600;
+    white-space: nowrap;
+    /* Prevent button text wrapping */
+}
+
+@media (max-width: 480px) {
+    .login-box {
+        padding: 24px;
+        width: 90%;
+    }
+
+    .input-group {
+        flex-direction: row;
+        /* Keep row even on mobile */
+    }
+
+    .login-box button {
+        padding: 12px 16px;
+        /* Slightly smaller padding on mobile */
+    }
 }
 
 .login-box button:hover {
