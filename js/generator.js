@@ -50,13 +50,13 @@ export function generateMinasTirith() {
     const BASE_Y = 10;
 
     // Radii for the 7 levels (outermost to innermost)
-    const TIER_RADII = [280, 230, 185, 145, 110, 80, 45];
+    const TIER_RADII = [128, 105, 85, 66, 50, 37, 21];
     const TIER_HEIGHTS = [15, 15, 15, 15, 15, 15, 60]; // How tall each wall/cliff is
     const FLOOR_THICKNESS = 1;
 
     // The "Prow" (Keel) configuration
-    const PROW_WIDTH_START = 40;
-    const PROW_EXTENSION = 320; // How far out it goes
+    const PROW_WIDTH_START = 20;
+    const PROW_EXTENSION = 150; // How far out it goes
 
     let currentY = BASE_Y;
 
