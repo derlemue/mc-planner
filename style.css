@@ -569,7 +569,10 @@ input[type="number"] {
     border: 1px solid var(--glass-border);
     color: white;
     padding: 12px 16px;
-    border-radius: 8px;
+    border-radius: 8px 0 0 8px;
+    /* Left corners only */
+    border-right: none;
+    /* Merge with button */
     font-size: 1rem;
     font-family: inherit;
     outline: none;
@@ -588,6 +591,8 @@ input[type="number"] {
     /* Match input padding vertically */
     background: var(--accent);
     border: none;
+    border-radius: 0 8px 8px 0;
+    /* Right corners only */
     font-weight: 600;
 }
 
