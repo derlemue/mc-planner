@@ -88,10 +88,10 @@ export function generateMinasTirith() {
             for (let z = -outerRadius; z <= outerRadius; z++) {
                 const dist = Math.sqrt(x * x + z * z);
 
-                // Prow Checking (The wedge facing East)
-                // Assume +X is East. The prow is a wedge usually.
-                // Simplified: A rectangle/triangle protruding on +X axis
-                const isProw = (x > 0 && Math.abs(z) < (PROW_WIDTH_START * (1 - x / PROW_EXTENSION) + 10)); // Tapering
+                // Prow Checking (The wedge facing West now)
+                // Assume -X is West. The prow is a wedge usually.
+                // Simplified: A rectangle/triangle protruding on -X axis
+                const isProw = (x < 0 && Math.abs(z) < (PROW_WIDTH_START * (1 - Math.abs(x) / PROW_EXTENSION) + 10)); // Tapering
 
                 if (dist <= outerRadius) {
 
@@ -111,7 +111,7 @@ export function generateMinasTirith() {
                         }
 
                         // Detail: Fountain in the Prow area (Tier 0)
-                        if (t === 0 && x > 200 && x < 220 && Math.abs(z) < 10) {
+                        if (t === 0 && x < -200 && x > -220 && Math.abs(z) < 10) {
                             setBlock(x, currentY, z, 'water');
                         }
                     } else {
@@ -133,7 +133,7 @@ export function generateMinasTirith() {
                     // Build Wall upwards
                     for (let h = 0; h < wallHeight; h++) {
                         // Skip Prow section for lower walls (it cuts through)
-                        const isProw = (x > 0 && Math.abs(z) < 20); // Simplified Prow check for walls
+                        const isProw = (x < 0 && Math.abs(z) < 20); // Simplified Prow check for walls
                         if (!isProw || t === 6) { // Top level has wall all around? Or Prow ends?
                             setBlock(x, currentY + h, z, 'white_concrete');
                         }
@@ -169,7 +169,7 @@ export function generateMinasTirith() {
                             for (let h = 1; h <= foundationHeight; h++) {
                                 // Prow Check for the cliff 
                                 // The prow actually STICKS OUT and forms the cliff face on the East
-                                const isProw = (x > 0 && Math.abs(z) < 15);
+                                const isProw = (x < 0 && Math.abs(z) < 15);
                                 if (isProw) {
                                     setBlock(x, currentY + h, z, 'white_concrete'); // Prow is white stone/structure
                                 } else {
