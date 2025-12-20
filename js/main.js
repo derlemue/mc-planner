@@ -536,31 +536,60 @@ function setupControls() {
         render();
     };
 
-    // Mouse Wheel Zoom
-    // Attach to parent to ensure we catch it even if canvas has issues
+    // Mouse Wheel Zoom (Zoom to Cursor)
+    // Attach to parent to ensure capture
     canvas.parentElement.addEventListener('wheel', (e) => {
         e.preventDefault();
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate world coordinates under mouse BEFORE zoom
+        const worldX = (mouseX - state.offsetX) / state.zoom;
+        const worldZ = (mouseY - state.offsetZ) / state.zoom;
+
         const zoomFactor = 1.1;
+        let newZoom = state.zoom;
+
         if (e.deltaY < 0) {
             // Zoom In
-            state.zoom = Math.min(state.zoom * zoomFactor, 40);
+            newZoom = Math.min(state.zoom * zoomFactor, 100);
         } else {
             // Zoom Out
-            state.zoom = Math.max(state.zoom / zoomFactor, 1);
+            newZoom = Math.max(state.zoom / zoomFactor, 0.5);
         }
+
+        state.zoom = newZoom;
+
+        // Recalculate offset so that worldX/Z is still under mouseX/Y
+        // mouseX = newOffsetX + (worldX * newZoom)
+        // newOffsetX = mouseX - (worldX * newZoom)
+        state.offsetX = mouseX - (worldX * state.zoom);
+        state.offsetZ = mouseY - (worldZ * state.zoom);
+
         render();
     }, { passive: false });
 
     // Keyboard Navigation (Layers)
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight') {
-            // Layer Up
-            const next = Math.min(state.currentLayer + 1, state.maxY);
+        // Prevent scrolling with arrows
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+        }
+
+        let delta = 0;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            delta = 1;
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            delta = -1;
+        }
+
+        if (delta !== 0) {
+            const current = parseInt(state.currentLayer) || 0;
+            const next = Math.min(Math.max(current + delta, state.minY), state.maxY);
+            // console.log(`Navigating Layer: ${current} -> ${next}`);
             updateLayer(next);
-        } else if (e.key === 'ArrowLeft') {
-            // Layer Down
-            const prev = Math.max(state.currentLayer - 1, state.minY);
-            updateLayer(prev);
         }
     });
 
