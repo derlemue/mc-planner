@@ -150,8 +150,11 @@ function render() {
     ctx.fillStyle = '#020617'; // Match bg
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Grid (Background)
+    // Draw Grid & Background Checkerboard
     drawGrid();
+
+    // Reset collision buffer for this frame
+    state.labelBounds = [];
 
     // Render Blocks
     if (!state.world) return;
@@ -160,17 +163,12 @@ function render() {
     const materials = new Map();
     let blockCount = 0;
 
-    // We need to collect blocks to do the labeling pass effectively?
-    // Actually, we can just iterate. But for labels we need to know neighbors.
-    // Let's dump visible blocks into a sparse structure for the labeler.
     const visibleBlocks = new Set(); // Strings "x,z"
 
     if (layer) {
         for (const [x, row] of layer) {
             for (const [z, block] of row) {
-                // Collect Stats (BEFORE filtering?)
-                // User requirement: "materialien per klick ... ein und aufgeblendet".
-                // Usually stats remain constant, but let's hide them from view.
+                // Collect Stats
                 blockCount++;
                 materials.set(block.type, (materials.get(block.type) || 0) + 1);
 
@@ -185,15 +183,10 @@ function render() {
         }
 
         // PASS 2: Labels
-        // Only run if zoom is high enough to read
-        // Pass the filtered Set 'visibleBlocks' to drawLabels to ignore hidden blocks?
-        // drawLabels currently iterates 'layer'. We should make it respect hiddenMaterials.
-        if (state.zoom > 10) {
+        if (state.zoom > 4) {
             drawLabels(layer);
         }
 
-    } else {
-        // console.log(`No data for layer ${state.currentLayer}`);
     }
 
     updateSidebar(materials, blockCount);
@@ -201,12 +194,6 @@ function render() {
 
 function drawGrid() {
     const gridSize = state.zoom;
-
-    // We want lines at World Coordinates.
-    // Start X/Z in World Space
-    // screenX = offsetX + worldX * zoom
-    // 0 = offsetX + startX * zoom  ->  startX = -offsetX / zoom
-
     const startX = Math.floor(-state.offsetX / state.zoom);
     const endX = Math.ceil((canvas.width - state.offsetX) / state.zoom);
     const startZ = Math.floor(-state.offsetZ / state.zoom);
@@ -214,12 +201,24 @@ function drawGrid() {
 
     ctx.lineWidth = 1;
 
-    // Optimization: Draw main grid less frequently if zoom is low?
-    // Just draw lines.
+    // Checkerboard Background Pattern
+    // We draw this first so it sits behind the grid lines and blocks
+    if (state.zoom > 5) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        for (let x = startX; x <= endX; x++) {
+            for (let z = startZ; z <= endZ; z++) {
+                if ((Math.abs(x) + Math.abs(z)) % 2 !== 0) {
+                    const screenX = state.offsetX + (x * gridSize);
+                    const screenY = state.offsetZ + (z * gridSize);
+                    ctx.fillRect(Math.floor(screenX), Math.floor(screenY), Math.ceil(gridSize), Math.ceil(gridSize));
+                }
+            }
+        }
+    }
 
+    // Grid Lines
     for (let x = startX; x <= endX; x++) {
         const screenX = state.offsetX + (x * gridSize);
-
         ctx.beginPath();
         if (x === 0) {
             ctx.strokeStyle = '#6366f1'; // Axis
@@ -235,7 +234,6 @@ function drawGrid() {
             ctx.strokeStyle = '#1e293b'; // Standard
             ctx.lineWidth = 1;
         }
-
         ctx.moveTo(screenX, 0);
         ctx.lineTo(screenX, canvas.height);
         ctx.stroke();
@@ -243,7 +241,6 @@ function drawGrid() {
 
     for (let z = startZ; z <= endZ; z++) {
         const screenZ = state.offsetZ + (z * gridSize);
-
         ctx.beginPath();
         if (z === 0) {
             ctx.strokeStyle = '#6366f1';
@@ -259,7 +256,6 @@ function drawGrid() {
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 1;
         }
-
         ctx.moveTo(0, screenZ);
         ctx.lineTo(canvas.width, screenZ);
         ctx.stroke();
@@ -278,34 +274,17 @@ function drawBlock(x, z, type) {
     ctx.fillStyle = color;
 
     ctx.fillRect(Math.floor(screenX), Math.floor(screenY), Math.ceil(size), Math.ceil(size));
-
-    // Checkerboard Overlay
-    if ((Math.abs(x) + Math.abs(z)) % 2 !== 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(Math.floor(screenX), Math.floor(screenY), Math.ceil(size), Math.ceil(size));
-    }
 }
 
 function drawLabels(layer) {
-    // Improved Labeling Logic:
-    // 1. Show labels at lower zoom ( > 4)
-    // 2. Scan off-screen to get TRUE total length
-    // 3. Dynamic clutter filtering
-
-    if (state.zoom <= 4) return; // Threshold lowered from 10
+    if (state.zoom <= 4) return;
 
     ctx.font = `bold ${Math.max(10, state.zoom * 0.6)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'white';
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 3;
     ctx.lineJoin = 'round';
 
-    // Viewport bounds
-    // We scan slightly outside viewport to catch runs starting just off-screen
-    // preventing "pop-in" of labels.
-    const padding = 2; // Blocks
+    const padding = 2;
     const startX = Math.floor((-state.offsetX / state.zoom) - padding);
     const endX = Math.ceil(((canvas.width - state.offsetX) / state.zoom) + padding);
     const startZ = Math.floor((-state.offsetZ / state.zoom) - padding);
@@ -314,23 +293,17 @@ function drawLabels(layer) {
     const hLabels = [];
     const vLabels = [];
 
-    // Helper: Scan full length of a run
     const getRunLength = (x, z, type, dir) => {
-        let length = 1; // Current block
-
+        let length = 1;
         // Scan Backwards
         let scan = (dir === 'h') ? x - 1 : z - 1;
         while (true) {
-            // Check world limits or arbitrary safe usage limit (e.g. 500 blocks away)
             const mapX = (dir === 'h') ? scan : x;
             const mapZ = (dir === 'h') ? z : scan;
-
-            // Access deeply nested map safely
             let block = null;
             if (layer.has(mapX) && layer.get(mapX).has(mapZ)) {
                 block = layer.get(mapX).get(mapZ);
             }
-
             if (block && block.type === type && !state.hiddenMaterials.has(block.type)) {
                 length++;
                 scan--;
@@ -338,19 +311,17 @@ function drawLabels(layer) {
                 break;
             }
         }
-        const runStart = scan + 1; // Actual start index
+        const runStart = scan + 1;
 
         // Scan Forwards
         scan = (dir === 'h') ? x + 1 : z + 1;
         while (true) {
             const mapX = (dir === 'h') ? scan : x;
             const mapZ = (dir === 'h') ? z : scan;
-
             let block = null;
             if (layer.has(mapX) && layer.get(mapX).has(mapZ)) {
                 block = layer.get(mapX).get(mapZ);
             }
-
             if (block && block.type === type && !state.hiddenMaterials.has(block.type)) {
                 length++;
                 scan++;
@@ -358,19 +329,16 @@ function drawLabels(layer) {
                 break;
             }
         }
-        // runEnd is scan - 1
-
         return { length, start: runStart };
     };
 
-    // Horizontal Scanning (Visible Area)
+    // Horizontal Scanning
     for (let z = startZ; z <= endZ; z++) {
         let lastType = null;
-        let visitedX = -Infinity; // Optimize: skip checking blocks we already counted in current loop run
+        let visitedX = -Infinity;
 
         for (let x = startX; x <= endX; x++) {
             if (x <= visitedX) continue;
-
             let block = null;
             if (layer.has(x) && layer.get(x).has(z)) {
                 block = layer.get(x).get(z);
@@ -379,33 +347,12 @@ function drawLabels(layer) {
 
             if (block) {
                 if (block.type !== lastType) {
-                    // New run found
-                    // Full scan!
                     const { length, start } = getRunLength(x, z, block.type, 'h');
-
-                    // Filter: Clutter control
-                    // At low zoom, hide small runs
                     if (state.zoom < 8 && length < 5) {
-                        // Skip adding label
-                    } else if (length > 2) { // Determine minimum length to label generally
-                        // Only add if not already added?
-                        // We are iterating X. If we find a run that started way back at -100, 
-                        // and we are at startX (e.g. 0), we should add it.
-                        // But if we encounter the SAME run at x+1, we shouldn't add it twice.
-                        // Simple dedup: We only add if x == start OR x == startX (first visible block of run)
-
-                        // Better: We found a run. We know its start and length.
-                        // We can define the "ID" of this run by its start coord.
-                        // We add it to hLabels.
+                    } else if (length > 2) {
                         hLabels.push({ x: start, z: z, len: length, type: 'h' });
                     }
-
-                    // Optimization: Skip loop to end of *visible* part of this run?
-                    // No, because we might have different materials interleaved (unlikely if contig run logic holds)
-                    // If we found a run of length 10 starting at X, we know X+1..X+9 are same type.
-                    // We can skip visibleX set.
-                    const runEnd = start + length - 1;
-                    visitedX = runEnd;
+                    visitedX = start + length - 1;
                 }
                 lastType = block.type;
             } else {
@@ -415,34 +362,25 @@ function drawLabels(layer) {
     }
 
     // Vertical Scanning
-    // Note: Iterate X then Z is more cache friendly usually, but map structure is Y->X->Z.
-    // So for Vertical (Iterate Z along fixed X), we pick an X and go down Z.
     for (let x = startX; x <= endX; x++) {
         if (!layer.has(x)) continue;
         const row = layer.get(x);
-
         let lastType = null;
         let visitedZ = -Infinity;
 
         for (let z = startZ; z <= endZ; z++) {
             if (z <= visitedZ) continue;
-
             let block = row.has(z) ? row.get(z) : null;
             if (block && state.hiddenMaterials.has(block.type)) block = null;
 
             if (block) {
                 if (block.type !== lastType) {
                     const { length, start } = getRunLength(x, z, block.type, 'v');
-
                     if (state.zoom < 8 && length < 5) {
-                        // skip
                     } else if (length > 2) {
                         vLabels.push({ x: x, z: start, len: length, type: 'v' });
                     }
-
-                    // Skip ahead
-                    const runEnd = start + length - 1;
-                    visitedZ = runEnd;
+                    visitedZ = start + length - 1;
                 }
                 lastType = block.type;
             } else {
@@ -450,14 +388,6 @@ function drawLabels(layer) {
             }
         }
     }
-
-    // Deduplicate?
-    // Our logic pushes a label for every 'segment start' encountered.
-    // Since we skip 'visited', we generally won't duplicate within one frame for one axis.
-    // However, hLabels might contain duplicates if we re-scanned? No, visual loop is linear.
-
-    // Merging Logic (Keep existing Merged logic for stacked walls)
-    // We just need to fit our new simple label objects into the merge function expectations.
 
     const mergeLabels = (labels, orient) => {
         if (labels.length === 0) return;
@@ -468,13 +398,10 @@ function drawLabels(layer) {
         }
 
         let currentGroup = [labels[0]];
-
         for (let i = 1; i < labels.length; i++) {
             const prev = currentGroup[currentGroup.length - 1];
             const curr = labels[i];
-
             let isAdjacent = false;
-            // Strict adjacency for merging stacking walls
             if (orient === 'h') {
                 isAdjacent = (curr.x === prev.x && curr.len === prev.len && curr.z === prev.z + 1);
             } else {
@@ -501,7 +428,6 @@ function drawMergedLabel(group, orient) {
     const last = group[group.length - 1];
 
     let labelZ = (first.z + last.z) / 2;
-    // For position x, we use the CENTER of the run.
     // first.x is the start block. len is length. Center is start + len/2 - 0.5
     let labelX = (orient === 'h') ? (first.x + first.len / 2 - 0.5) : first.x;
 
@@ -510,122 +436,75 @@ function drawMergedLabel(group, orient) {
         labelZ = first.z + first.len / 2 - 0.5;
     }
 
-    // CLAMPING to Viewport
-    // The calculated labelX/labelZ is the true center of the wall.
-    // If the wall is huge, this center might be off-screen.
-    // We want to draw the text at a visible position along the wall, closest to center?
-    // Or just clamped to screen edges with padding.
-
-    // Convert World Center to Screen Center
+    // Convert World Center to Screen Center (NO CLAMPING/SLIDING)
     let screenX = state.offsetX + (labelX * state.zoom) + (state.zoom / 2);
-    let screenY = state.offsetZ + (labelZ * state.zoom) + (state.zoom / 2); // screenY corresponds to Z in world
-
-    // Bounds for text clamping
-    const margin = 50;
-
-    // Logic: 
-    // If Horizontal wall: screenY is fixed (row). screenX (column/length) can slide.
-    // Valid ScreenX range for this wall: 
-    // StartWorldX -> ScreenStart, EndWorldX -> ScreenEnd.
-
-    if (orient === 'h') {
-        const worldStart = first.x;
-        const worldEnd = first.x + first.len;
-        const sStart = state.offsetX + (worldStart * state.zoom);
-        const sEnd = state.offsetX + (worldEnd * state.zoom);
-
-        // Clamp screenX to be within [sStart, sEnd] AND within [0+margin, canvas.width-margin]
-        // But strictly within the wall bounds is priority.
-
-        const visibleMin = Math.max(sStart, margin);
-        const visibleMax = Math.min(sEnd, canvas.width - margin);
-
-        if (visibleMin < visibleMax) {
-            // We have visible space. Center within that space? 
-            // Or stick to true center if visible?
-            // "Sticky" behavior: Keep true center if visible. If getting clipped, slide.
-            screenX = Math.max(visibleMin, Math.min(screenX, visibleMax));
-        } else {
-            // Not visible enough? Or simple clamping.
-            // If completely offscreen, we don't draw text anyway?
-            // drawLabelText handles 'if' checks? No, we just pass coords.
-            // However, if sEnd < 0 or sStart > width, we generally shouldn't draw.
-            if (sEnd < 0 || sStart > canvas.width) return;
-        }
-    } else {
-        // Vertical wall
-        const worldStart = first.z;
-        const worldEnd = first.z + first.len;
-        const sStart = state.offsetZ + (worldStart * state.zoom);
-        const sEnd = state.offsetZ + (worldEnd * state.zoom);
-
-        const visibleMin = Math.max(sStart, margin);
-        const visibleMax = Math.min(sEnd, canvas.height - margin);
-
-        if (visibleMin < visibleMax) {
-            screenY = Math.max(visibleMin, Math.min(screenY, visibleMax));
-        } else {
-            if (sEnd < 0 || sStart > canvas.height) return;
-        }
-    }
-
-    // Inverse convert back to "label centered relative coords" for drawLabelText?
-    // FIX: We need to pass BOTH the true World Center (for arrows) and the Screen Center (for text).
-    // drawLabelText takes World Coords (cx, cz). 
-
-    // We already have labelX, labelZ as true world centers.
-    // And screenX, screenY as the sticky text position.
+    let screenY = state.offsetZ + (labelZ * state.zoom) + (state.zoom / 2);
 
     drawLabelText(labelX, labelZ, first.len, orient, screenX, screenY);
 }
 
-function drawLabelText(cx, cz, length, orient, textSx, textSy) {
-    // True World Center for Arrows
-    const arrowSx = state.offsetX + (cx * state.zoom) + (state.zoom / 2);
-    const arrowSy = state.offsetZ + (cz * state.zoom) + (state.zoom / 2);
+function drawLabelText(cx, cz, length, orient, sx, sy) {
+    // Check collision
+    // Estimate text width/height
+    const fontSize = Math.max(10, state.zoom * 0.6);
+    const text = `${length}`;
+    const textWidth = ctx.measureText(text).width;
+    // Rough box size (text + padding)
+    const boxW = textWidth + 10;
+    const boxH = fontSize + 4;
 
-    // Use sticky text position if provided, else default to arrow position
-    const sx = textSx !== undefined ? textSx : arrowSx;
-    const sy = textSy !== undefined ? textSy : arrowSy;
+    // Bounds: [x, y, w, h] - Centered at sx, sy
+    const bounds = {
+        x: sx - boxW / 2,
+        y: sy - boxH / 2,
+        w: boxW,
+        h: boxH
+    };
 
-    // CAD Style Dimension Lines
-    // If length > 3, draw arrows. If not, just text.
+    // Simple AABB Collision
+    for (const b of state.labelBounds) {
+        if (bounds.x < b.x + b.w &&
+            bounds.x + bounds.w > b.x &&
+            bounds.y < b.y + b.h &&
+            bounds.y + bounds.h > b.y) {
+            // Collision detected - Skip this label
+            return;
+        }
+    }
+
+    // No collision: Draw and Store
+    state.labelBounds.push(bounds);
+
     if (length > 3) {
         ctx.save();
         ctx.strokeStyle = '#ffd700'; // Gold for dimensions
-        ctx.lineWidth = 2; // Slightly thinner than text stroke
+        ctx.lineWidth = 2;
         ctx.beginPath();
 
         const halfLenPx = (length * state.zoom) / 2;
         const arrowSize = Math.min(6, state.zoom / 3);
 
+        // Arrow drawing uses the same center point as text now (fixed)
+        const arrowSx = sx;
+        const arrowSy = sy;
+
         if (orient === 'h') {
-            // Horizontal Line (Uses Arrow Position)
             ctx.moveTo(arrowSx - halfLenPx + 2, arrowSy);
             ctx.lineTo(arrowSx + halfLenPx - 2, arrowSy);
-
             // Arrows
-            // Left Arrow
             ctx.moveTo(arrowSx - halfLenPx + 2 + arrowSize, arrowSy - arrowSize);
             ctx.lineTo(arrowSx - halfLenPx + 2, arrowSy);
             ctx.lineTo(arrowSx - halfLenPx + 2 + arrowSize, arrowSy + arrowSize);
-
-            // Right Arrow
             ctx.moveTo(arrowSx + halfLenPx - 2 - arrowSize, arrowSy - arrowSize);
             ctx.lineTo(arrowSx + halfLenPx - 2, arrowSy);
             ctx.lineTo(arrowSx + halfLenPx - 2 - arrowSize, arrowSy + arrowSize);
-
         } else {
-            // Vertical Line
             ctx.moveTo(arrowSx, arrowSy - halfLenPx + 2);
             ctx.lineTo(arrowSx, arrowSy + halfLenPx - 2);
-
-            // Top Arrow
+            // Arrows
             ctx.moveTo(arrowSx - arrowSize, arrowSy - halfLenPx + 2 + arrowSize);
             ctx.lineTo(arrowSx, arrowSy - halfLenPx + 2);
             ctx.lineTo(arrowSx + arrowSize, arrowSy - halfLenPx + 2 + arrowSize);
-
-            // Bottom Arrow
             ctx.moveTo(arrowSx - arrowSize, arrowSy + halfLenPx - 2 - arrowSize);
             ctx.lineTo(arrowSx, arrowSy + halfLenPx - 2);
             ctx.lineTo(arrowSx + arrowSize, arrowSy + halfLenPx - 2 - arrowSize);
@@ -634,12 +513,11 @@ function drawLabelText(cx, cz, length, orient, textSx, textSy) {
         ctx.restore();
     }
 
-    // Text (uses Sticky Position sx, sy)
-    ctx.fillStyle = '#ffffff'; // White text
+    ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3;
-    ctx.strokeText(`${length}`, sx, sy);
-    ctx.fillText(`${length}`, sx, sy);
+    ctx.strokeText(text, sx, sy);
+    ctx.fillText(text, sx, sy);
 }
 
 function updateSidebar(materials, count) {
