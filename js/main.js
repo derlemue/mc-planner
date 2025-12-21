@@ -204,7 +204,7 @@ function drawGrid() {
     // Checkerboard Background Pattern
     // We draw this first so it sits behind the grid lines and blocks
     if (state.zoom > 5) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
         for (let x = startX; x <= endX; x++) {
             for (let z = startZ; z <= endZ; z++) {
                 if ((Math.abs(x) + Math.abs(z)) % 2 !== 0) {
