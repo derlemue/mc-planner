@@ -124,12 +124,16 @@ export function generateMinasTirith() {
         }
 
         // 2. Build Walls (The outer rim of this tier)
-        for (let x = -outerRadius; x <= outerRadius; x++) {
-            for (let z = -outerRadius; z <= outerRadius; z++) {
+        // Widen the outer wall (Tier 0) to 6 blocks (outwards extension)
+        const wallOuterLimit = (t === 0) ? outerRadius + 3 : outerRadius;
+
+        for (let x = -wallOuterLimit; x <= wallOuterLimit; x++) {
+            for (let z = -wallOuterLimit; z <= wallOuterLimit; z++) {
                 const dist = Math.sqrt(x * x + z * z);
 
-                // Wall is roughly at outerRadius
-                if (dist <= outerRadius && dist > outerRadius - 3) {
+                // Wall is between inner boundary and potentially extended outer boundary
+                // Original: dist <= outerRadius && dist > outerRadius - 3
+                if (dist <= wallOuterLimit && dist > outerRadius - 3) {
                     // Build Wall upwards
                     for (let h = 0; h < wallHeight; h++) {
                         // Skip Prow section for lower walls (it cuts through)
