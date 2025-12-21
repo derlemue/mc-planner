@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Material list generation per layer.
 - Dark mode "Glassmorphism" UI.
 
+## [2.2.0] - 2025-12-21
+### Fixed
+- **Label Positioning**: Dimension labels are now strictly fixed to the wall centers and no longer float/slide view-dependently.
+- **Label Overlap**: Implemented collision detection to prevent dimension labels from rendering on top of each other.
+- **Edge Visibility**: Added background checkerboard rendering to allow counting blocks in empty space ("Void") at building edges.
+
 ## [2.1.0] - 2025-12-20
 ### Added
 - **Secure Login**: Access protection with password authentication ("1337").
